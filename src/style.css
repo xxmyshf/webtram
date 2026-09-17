@@ -252,10 +252,10 @@ html, body {
 }
 
 .cyber-font-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
   width: 230px;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
@@ -263,7 +263,7 @@ html, body {
   border-radius: 8px;
   padding: 10px 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85), 0 0 16px rgba(0, 229, 255, 0.25);
-  z-index: 100;
+  z-index: 9999;
   user-select: none;
   animation: fadeInDown 0.15s ease-out;
 }
@@ -339,6 +339,7 @@ html, body {
   justify-content: center;
   gap: 6px;
   flex: 1;
+  min-width: 0;
   height: 32px;
   border-radius: 6px;
   background: rgba(0, 229, 255, 0.08);
@@ -348,6 +349,8 @@ html, body {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
   transition: all 0.15s ease;
 }
 
@@ -370,6 +373,7 @@ html, body {
 
 .font-chip {
   flex: 1;
+  min-width: 0;
   text-align: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -379,6 +383,7 @@ html, body {
   padding: 5px 0;
   border-radius: 4px;
   cursor: pointer;
+  box-sizing: border-box;
   transition: all 0.15s ease;
 }
 
@@ -1188,9 +1193,7 @@ html, body {
     font-size: 9px;
   }
   .cyber-font-popover {
-    right: 0;
-    width: 230px;
-    max-width: calc(100vw - 20px);
+    max-width: calc(100vw - 16px);
   }
 }
 
@@ -1227,9 +1230,7 @@ html, body {
     font-size: 8px !important;
   }
   .cyber-font-popover {
-    top: 36px;
-    right: 0;
-    width: 220px;
+    max-width: calc(100vw - 16px);
   }
 
   #app {
@@ -1273,14 +1274,14 @@ html, body {
     right: 0 !important;
   }
 
-  /* Keyboard container in landscape (floats over lower 2/3 of terminal) */
+  /* Keyboard container in landscape (floats over lower terminal) */
   .cyber-virtual-keyboard {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    height: calc(66.67dvh - 10px);
-    max-height: 290px;
+    height: auto !important;
+    max-height: none !important;
     pointer-events: none;
     z-index: 20;
     padding: 0 !important;
@@ -1299,9 +1300,9 @@ html, body {
     justify-content: space-between;
     align-items: flex-end;
     width: 100%;
-    height: 100%;
+    height: auto !important;
     gap: 0;
-    padding: 0 0 calc(4px + env(safe-area-inset-bottom, 0px)) 0;
+    padding: 0 0 calc(2px + env(safe-area-inset-bottom, 0px)) 0;
     box-sizing: border-box;
     pointer-events: none;
   }
@@ -1313,7 +1314,8 @@ html, body {
     flex-direction: column;
     width: calc(var(--kb-solid-width, 24vw) * 2);
     max-width: 440px;
-    height: 100%;
+    height: auto !important;
+    max-height: none !important;
     border-radius: 8px 8px 0 0;
     padding: 3px 5px;
     overflow: hidden;
@@ -1534,10 +1536,10 @@ html, body {
     display: flex !important;
     flex-direction: column !important;
     gap: 2px !important;
-    height: 100% !important;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
-    justify-content: space-between !important;
+    justify-content: flex-end !important;
   }
 
   /* Make main rows display: contents so all 6 rows are direct flex children of keyboard-inner-body */
@@ -1545,12 +1547,12 @@ html, body {
     display: contents !important;
   }
 
-  /* Every row (including Row 1 quick toolbar) has IDENTICAL flex: 1 height */
+  /* Every row (including Row 1 quick toolbar) has consistent auto-height matching portrait */
   .cyber-split-panel .quick-toolbar,
   .cyber-split-panel .keyboard-row {
     display: flex !important;
-    flex: 1 1 0 !important;
-    height: 100% !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
     gap: 2px !important;
@@ -1566,19 +1568,30 @@ html, body {
     margin: 0 !important;
     padding: 0 !important;
     flex: 1 1 0 !important;
-    height: 100% !important;
+    height: auto !important;
     min-height: 0 !important;
   }
 
-  /* Symbol buttons and letter buttons have identical height */
+  /* Symbol buttons, letter buttons and toolbar buttons have identical height matching portrait (~38px) */
   .cyber-split-panel .keycap,
   .cyber-split-panel .key-toolbar-compact {
-    height: 100% !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
     margin: 0 !important;
     padding: 0 1px !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
     border-radius: 4px !important;
+  }
+
+  /* For phones with screen height <= 400px in landscape, slightly more compact (34px) */
+  @media (max-height: 400px) {
+    .cyber-split-panel .keycap,
+    .cyber-split-panel .key-toolbar-compact {
+      height: 34px !important;
+      min-height: 34px !important;
+      max-height: 34px !important;
+      font-size: 11px !important;
+    }
   }
 }

@@ -223,16 +223,47 @@ export class StatusBar {
       const updated = this.callbacks.onSetFontSize(size);
       this.updateFontUI(updated);
     });
+
+    // Auto-reposition if window resizes or rotates while open
+    window.addEventListener('resize', () => {
+      if (this.fontPopover && this.fontPopover.style.display === 'block') {
+        this.adjustPopoverPosition();
+      }
+    });
   }
 
   public openFontPopover(): void {
     const curSize = this.callbacks.onGetFontSize();
     this.updateFontUI(curSize);
     this.fontPopover.style.display = 'block';
+    this.adjustPopoverPosition();
   }
 
   public closeFontPopover(): void {
     this.fontPopover.style.display = 'none';
+  }
+
+  private adjustPopoverPosition(): void {
+    const fontBtn = this.container.querySelector('.btn-font-size') as HTMLElement;
+    if (!fontBtn || !this.fontPopover) return;
+
+    const btnRect = fontBtn.getBoundingClientRect();
+    const screenWidth = window.innerWidth || document.documentElement.clientWidth;
+    const popoverWidth = Math.min(230, screenWidth - 16);
+
+    // Center under button with screen edge clamping
+    let left = btnRect.left + (btnRect.width / 2) - (popoverWidth / 2);
+    const minLeft = 8;
+    const maxLeft = screenWidth - popoverWidth - 8;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+
+    this.fontPopover.style.position = 'fixed';
+    this.fontPopover.style.top = `${Math.round(btnRect.bottom + 6)}px`;
+    this.fontPopover.style.left = `${Math.round(left)}px`;
+    this.fontPopover.style.right = 'auto';
+    this.fontPopover.style.width = `${popoverWidth}px`;
+    this.fontPopover.style.boxSizing = 'border-box';
+    this.fontPopover.style.zIndex = '9999';
   }
 
   public updateFontUI(size: number): void {
