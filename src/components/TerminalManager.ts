@@ -291,6 +291,29 @@ export class TerminalManager {
     this.container.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
   }
 
+  private externalScrollDelta = 0;
+
+  public scrollByDeltaY(deltaY: number): void {
+    this.externalScrollDelta += deltaY;
+    const lineHeight = (this.terminal.options.fontSize || 14) * (this.terminal.options.lineHeight || 1.25);
+    const step = Math.max(12, lineHeight);
+    const isAltBuffer = this.terminal.buffer.active.type === 'alternate';
+
+    const lines = Math.trunc(this.externalScrollDelta / step);
+    if (lines !== 0) {
+      this.externalScrollDelta -= lines * step;
+      if (isAltBuffer) {
+        const arrow = lines > 0 ? '\x1b[A' : '\x1b[B';
+        const count = Math.abs(lines);
+        for (let i = 0; i < count; i++) {
+          this.onInputCallback(arrow);
+        }
+      } else {
+        this.terminal.scrollLines(-lines);
+      }
+    }
+  }
+
   public dispose(): void {
     if (this.inertiaAnimFrame !== null) {
       cancelAnimationFrame(this.inertiaAnimFrame);

@@ -5,6 +5,7 @@ export interface VirtualKeyboardOptions {
   onInput: (data: string) => void;
   onResizeTrigger?: () => void;
   onToggleNativeIME?: () => void;
+  onScrollTerminal?: (deltaY: number) => void;
   speechManager: SpeechManager;
 }
 
@@ -13,6 +14,7 @@ export class VirtualKeyboard {
   private onInput: (data: string) => void;
   private onResizeTrigger?: () => void;
   private onToggleNativeIME?: () => void;
+  private onScrollTerminal?: (deltaY: number) => void;
 
   // Portrait collapse state
   private isCollapsed = false;
@@ -54,6 +56,7 @@ export class VirtualKeyboard {
     this.onInput = options.onInput;
     this.onResizeTrigger = options.onResizeTrigger;
     this.onToggleNativeIME = options.onToggleNativeIME;
+    this.onScrollTerminal = options.onScrollTerminal;
     this.speechManager = options.speechManager;
 
     this.voiceHUD = new VoiceInputHUD();
@@ -264,20 +267,144 @@ export class VirtualKeyboard {
     }
   }
 
+  private bindKeyAction(
+    btn: HTMLElement,
+    isFaint: boolean,
+    action: () => void,
+    options?: { repeat?: boolean; repeatValue?: string }
+  ): void {
+    if (!isFaint) {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.triggerKeyTouchFeedback(btn);
+        if (options?.repeat) {
+          this.startKeyRepeat(options.repeatValue!);
+        } else {
+          action();
+        }
+      });
+
+      if (options?.repeat) {
+        const stop = () => this.stopKeyRepeat();
+        btn.addEventListener('pointerup', stop);
+        btn.addEventListener('pointercancel', stop);
+        btn.addEventListener('pointerleave', stop);
+      }
+    } else {
+      // Faint / Hidden Keys (floating over terminal in landscape):
+      // Only responds on release ("只响应触摸松开的动作")!
+      // If dragged, forwards touch scroll delta to terminal so user can scroll through it!
+      let startX = 0;
+      let startY = 0;
+      let lastY = 0;
+      let isDragging = false;
+      let pointerId: number | null = null;
+
+      btn.addEventListener('pointerdown', (e) => {
+        pointerId = e.pointerId;
+        startX = e.clientX;
+        startY = e.clientY;
+        lastY = e.clientY;
+        isDragging = false;
+        try {
+          btn.setPointerCapture(e.pointerId);
+        } catch {}
+      });
+
+      btn.addEventListener('pointermove', (e) => {
+        if (pointerId !== e.pointerId) return;
+        const currentY = e.clientY;
+        const currentX = e.clientX;
+        const dist = Math.hypot(currentX - startX, currentY - startY);
+
+        if (!isDragging && dist > 6) {
+          isDragging = true;
+        }
+
+        if (isDragging) {
+          const deltaY = currentY - lastY;
+          lastY = currentY;
+          this.onScrollTerminal?.(deltaY);
+        }
+      });
+
+      const finish = (e: PointerEvent, cancel: boolean) => {
+        if (pointerId !== e.pointerId) return;
+        try {
+          btn.releasePointerCapture(e.pointerId);
+        } catch {}
+        pointerId = null;
+
+        if (!isDragging && !cancel) {
+          this.triggerKeyTouchFeedback(btn);
+          action();
+        }
+        isDragging = false;
+      };
+
+      btn.addEventListener('pointerup', (e) => finish(e, false));
+      btn.addEventListener('pointercancel', (e) => finish(e, true));
+    }
+  }
+
+  private bindFaintContainerScroll(container: HTMLElement): void {
+    let pointerId: number | null = null;
+    let lastY = 0;
+
+    container.addEventListener('pointerdown', (e) => {
+      if (e.target === container) {
+        pointerId = e.pointerId;
+        lastY = e.clientY;
+        try {
+          container.setPointerCapture(e.pointerId);
+        } catch {}
+      }
+    });
+
+    container.addEventListener('pointermove', (e) => {
+      if (pointerId === e.pointerId) {
+        const deltaY = e.clientY - lastY;
+        lastY = e.clientY;
+        this.onScrollTerminal?.(deltaY);
+      }
+    });
+
+    const finish = (e: PointerEvent) => {
+      if (pointerId === e.pointerId) {
+        try {
+          container.releasePointerCapture(e.pointerId);
+        } catch {}
+        pointerId = null;
+      }
+    };
+
+    container.addEventListener('pointerup', finish);
+    container.addEventListener('pointercancel', finish);
+  }
+
   /**
    * Helper to construct a row with left and right halves
    */
-  private createSplitRow(leftKeys: HTMLElement[], rightKeys: HTMLElement[]): HTMLElement {
+  private createSplitRow(
+    leftKeys: HTMLElement[],
+    rightKeys: HTMLElement[],
+    leftFaint = false,
+    rightFaint = false
+  ): HTMLElement {
     const row = document.createElement('div');
     row.className = 'keyboard-row';
 
     const leftHalf = document.createElement('div');
-    leftHalf.className = 'kb-half kb-half-left';
+    leftHalf.className = `kb-half kb-half-left ${leftFaint ? 'kb-faint-half' : ''}`;
     for (const k of leftKeys) leftHalf.appendChild(k);
 
     const rightHalf = document.createElement('div');
-    rightHalf.className = 'kb-half kb-half-right';
+    rightHalf.className = `kb-half kb-half-right ${rightFaint ? 'kb-faint-half' : ''}`;
     for (const k of rightKeys) rightHalf.appendChild(k);
+
+    if (leftFaint) this.bindFaintContainerScroll(leftHalf);
+    if (rightFaint) this.bindFaintContainerScroll(rightHalf);
 
     row.appendChild(leftHalf);
     row.appendChild(rightHalf);
@@ -308,15 +435,21 @@ export class VirtualKeyboard {
       { label: '→', value: '\x1b[C', repeat: true }
     ];
 
-    const leftBtns = toolsLeft.map((item) => this.createToolButton(item));
-    const rightBtns = toolsRight.map((item) => this.createToolButton(item));
+    const leftFaint = variant === 'right';
+    const rightFaint = variant === 'left';
 
-    const row = this.createSplitRow(leftBtns, rightBtns);
+    const leftBtns = toolsLeft.map((item) => this.createToolButton(item, leftFaint));
+    const rightBtns = toolsRight.map((item) => this.createToolButton(item, rightFaint));
+
+    const row = this.createSplitRow(leftBtns, rightBtns, leftFaint, rightFaint);
     row.classList.add('quick-toolbar');
     return row;
   }
 
-  private createToolButton(item: { label: string; value?: string; special?: string; repeat?: boolean }): HTMLElement {
+  private createToolButton(
+    item: { label: string; value?: string; special?: string; repeat?: boolean },
+    isFaint = false
+  ): HTMLElement {
     const keyBtn = document.createElement('button');
     keyBtn.type = 'button';
     keyBtn.className = 'keycap key-fn key-toolbar-compact';
@@ -327,28 +460,16 @@ export class VirtualKeyboard {
       if (this.ctrlLatched) keyBtn.classList.add('latched');
       keyBtn.innerHTML = `<span>^</span><span class="ctrl-indicator"></span>`;
       keyBtn.title = 'Ctrl 锁存模式';
-      keyBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.triggerKeyTouchFeedback(keyBtn);
-        this.toggleCtrlLatch();
-      });
+      this.bindKeyAction(keyBtn, isFaint, () => this.toggleCtrlLatch());
     } else if (item.repeat) {
       keyBtn.textContent = item.label;
-      keyBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.triggerKeyTouchFeedback(keyBtn);
-        this.startKeyRepeat(item.value!);
+      this.bindKeyAction(keyBtn, isFaint, () => this.handleKeyPress(item.value!), {
+        repeat: !isFaint,
+        repeatValue: item.value!
       });
     } else {
       keyBtn.textContent = item.label;
-      keyBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.triggerKeyTouchFeedback(keyBtn);
-        this.handleKeyPress(item.value!);
-      });
+      this.bindKeyAction(keyBtn, isFaint, () => this.handleKeyPress(item.value!));
     }
 
     return keyBtn;
@@ -359,64 +480,66 @@ export class VirtualKeyboard {
    */
   private createMainKeys(variant: 'portrait' | 'left' | 'right'): HTMLElement {
     const fragment = document.createDocumentFragment();
+    const leftFaint = variant === 'right';
+    const rightFaint = variant === 'left';
 
     if (this.currentMode === 'alpha') {
       const isUpper = this.isShiftActive || this.isCapsLock;
 
       // Row 2: Dedicated Numbers Row (1 2 3 4 5 | 6 7 8 9 0)
-      const numLeft = ['1', '2', '3', '4', '5'].map((n) => this.createCharKey(n));
-      const numRight = ['6', '7', '8', '9', '0'].map((n) => this.createCharKey(n));
-      const r2 = this.createSplitRow(numLeft, numRight);
+      const numLeft = ['1', '2', '3', '4', '5'].map((n) => this.createCharKey(n, leftFaint));
+      const numRight = ['6', '7', '8', '9', '0'].map((n) => this.createCharKey(n, rightFaint));
+      const r2 = this.createSplitRow(numLeft, numRight, leftFaint, rightFaint);
       r2.classList.add('number-row');
       fragment.appendChild(r2);
 
       // Row 3: Letters Q-P (q w e r t | y u i o p)
-      const r3Left = ['q', 'w', 'e', 'r', 't'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c));
-      const r3Right = ['y', 'u', 'i', 'o', 'p'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c));
-      fragment.appendChild(this.createSplitRow(r3Left, r3Right));
+      const r3Left = ['q', 'w', 'e', 'r', 't'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c, leftFaint));
+      const r3Right = ['y', 'u', 'i', 'o', 'p'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c, rightFaint));
+      fragment.appendChild(this.createSplitRow(r3Left, r3Right, leftFaint, rightFaint));
 
       // Row 4: Letters A-L (a s d f g | h j k l)
-      const r4Left = ['a', 's', 'd', 'f', 'g'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c));
-      const r4Right = ['h', 'j', 'k', 'l'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c));
-      fragment.appendChild(this.createSplitRow(r4Left, r4Right));
+      const r4Left = ['a', 's', 'd', 'f', 'g'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c, leftFaint));
+      const r4Right = ['h', 'j', 'k', 'l'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c, rightFaint));
+      fragment.appendChild(this.createSplitRow(r4Left, r4Right, leftFaint, rightFaint));
 
       // Row 5: Shift + Z-M + Backspace ([Shift] z x c v | b n m [Bksp])
       const r5Left = [
-        this.createShiftButton(),
-        ...['z', 'x', 'c', 'v'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c))
+        this.createShiftButton(leftFaint),
+        ...['z', 'x', 'c', 'v'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c, leftFaint))
       ];
       const r5Right = [
-        ...['b', 'n', 'm'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c)),
-        this.createBackspaceButton()
+        ...['b', 'n', 'm'].map((c) => this.createCharKey(isUpper ? c.toUpperCase() : c, rightFaint)),
+        this.createBackspaceButton(rightFaint)
       ];
-      fragment.appendChild(this.createSplitRow(r5Left, r5Right));
+      fragment.appendChild(this.createSplitRow(r5Left, r5Right, leftFaint, rightFaint));
 
       // Row 6: Switcher (?123) + Actions + Space + Enter
       fragment.appendChild(this.createBottomRow(variant, '?123'));
     } else {
       // Symbols Mode
       // Row 2: Top Symbols (! @ # $ % | ^ & * ( ))
-      const symLeft = ['!', '@', '#', '$', '%'].map((s) => this.createCharKey(s));
-      const symRight = ['^', '&', '*', '(', ')'].map((s) => this.createCharKey(s));
-      const r2 = this.createSplitRow(symLeft, symRight);
+      const symLeft = ['!', '@', '#', '$', '%'].map((s) => this.createCharKey(s, leftFaint));
+      const symRight = ['^', '&', '*', '(', ')'].map((s) => this.createCharKey(s, rightFaint));
+      const r2 = this.createSplitRow(symLeft, symRight, leftFaint, rightFaint);
       r2.classList.add('symbol-row');
       fragment.appendChild(r2);
 
       // Row 3: Numbers row in symbols (1 2 3 4 5 | 6 7 8 9 0)
-      const numLeft = ['1', '2', '3', '4', '5'].map((n) => this.createCharKey(n));
-      const numRight = ['6', '7', '8', '9', '0'].map((n) => this.createCharKey(n));
-      fragment.appendChild(this.createSplitRow(numLeft, numRight));
+      const numLeft = ['1', '2', '3', '4', '5'].map((n) => this.createCharKey(n, leftFaint));
+      const numRight = ['6', '7', '8', '9', '0'].map((n) => this.createCharKey(n, rightFaint));
+      fragment.appendChild(this.createSplitRow(numLeft, numRight, leftFaint, rightFaint));
 
       // Row 4: Brackets & arithmetic ([ ] { } < | > _ + = \)
-      const r4Left = ['[', ']', '{', '}', '<'].map((s) => this.createCharKey(s));
-      const r4Right = ['>', '_', '+', '=', '\\'].map((s) => this.createCharKey(s));
-      fragment.appendChild(this.createSplitRow(r4Left, r4Right));
+      const r4Left = ['[', ']', '{', '}', '<'].map((s) => this.createCharKey(s, leftFaint));
+      const r4Right = ['>', '_', '+', '=', '\\'].map((s) => this.createCharKey(s, rightFaint));
+      fragment.appendChild(this.createSplitRow(r4Left, r4Right, leftFaint, rightFaint));
 
       // Row 5: Punctuation & Backspace (: ; " ' | , . ? ` [Bksp])
-      const r5Left = [':', ';', '"', "'"].map((s) => this.createCharKey(s));
-      const r5Right = [',', '.', '?', '`'].map((s) => this.createCharKey(s));
-      r5Right.push(this.createBackspaceButton());
-      fragment.appendChild(this.createSplitRow(r5Left, r5Right));
+      const r5Left = [':', ';', '"', "'"].map((s) => this.createCharKey(s, leftFaint));
+      const r5Right = [',', '.', '?', '`'].map((s) => this.createCharKey(s, rightFaint));
+      r5Right.push(this.createBackspaceButton(rightFaint));
+      fragment.appendChild(this.createSplitRow(r5Left, r5Right, leftFaint, rightFaint));
 
       // Row 6: Switcher (ABC) + Actions + Space + Enter
       fragment.appendChild(this.createBottomRow(variant, 'ABC'));
@@ -427,7 +550,7 @@ export class VirtualKeyboard {
     return wrapper;
   }
 
-  private createShiftButton(): HTMLElement {
+  private createShiftButton(isFaint = false): HTMLElement {
     const shiftBtn = document.createElement('button');
     shiftBtn.type = 'button';
     shiftBtn.className = 'keycap key-fn key-shift';
@@ -440,15 +563,11 @@ export class VirtualKeyboard {
         <polyline points="12 4 4 12 9 12 9 20 15 20 15 12 20 12 12 4"></polyline>
       </svg>
     `;
-    shiftBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.triggerKeyTouchFeedback(shiftBtn);
-      this.handleShiftTap();
-    });
+    this.bindKeyAction(shiftBtn, isFaint, () => this.handleShiftTap());
     return shiftBtn;
   }
 
-  private createBackspaceButton(): HTMLElement {
+  private createBackspaceButton(isFaint = false): HTMLElement {
     const bkspBtn = document.createElement('button');
     bkspBtn.type = 'button';
     bkspBtn.className = 'keycap key-fn key-backspace';
@@ -459,26 +578,22 @@ export class VirtualKeyboard {
         <line x1="12" y1="9" x2="18" y2="15"></line>
       </svg>
     `;
-    bkspBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.triggerKeyTouchFeedback(bkspBtn);
-      this.handleKeyPress('\x7f');
-    });
+    this.bindKeyAction(bkspBtn, isFaint, () => this.handleKeyPress('\x7f'));
     return bkspBtn;
   }
 
   private createBottomRow(variant: 'portrait' | 'left' | 'right', modeSwitcherLabel: string): HTMLElement {
     const r6 = document.createElement('div');
     r6.className = 'keyboard-row bottom-row';
+    const leftFaint = variant === 'right';
+    const rightFaint = variant === 'left';
 
     // Switcher button (?123 / ABC)
     const switchBtn = document.createElement('button');
     switchBtn.type = 'button';
     switchBtn.className = 'keycap key-fn key-switch';
     switchBtn.textContent = modeSwitcherLabel;
-    switchBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.triggerKeyTouchFeedback(switchBtn);
+    this.bindKeyAction(switchBtn, leftFaint, () => {
       this.triggerHaptic(15);
       this.currentMode = this.currentMode === 'alpha' ? 'symbols' : 'alpha';
       this.updateMainRows();
@@ -495,14 +610,12 @@ export class VirtualKeyboard {
       </svg>
     `;
     imeBtn.title = '唤起系统原生输入法';
-    imeBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.triggerKeyTouchFeedback(imeBtn);
+    this.bindKeyAction(imeBtn, leftFaint, () => {
       this.triggerHaptic(15);
       this.onToggleNativeIME?.();
     });
 
-    // Spacebar with Voice Input
+    // Spacebar with Voice Input (Space is always in the solid half for split keyboards!)
     const spaceKey = document.createElement('button');
     spaceKey.type = 'button';
     spaceKey.className = 'keycap key-space';
@@ -524,10 +637,7 @@ export class VirtualKeyboard {
     dotBtn.className = 'keycap key-char key-dot';
     dotBtn.textContent = '.';
     dotBtn.title = '英文句点 [ . ]';
-    dotBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.triggerKeyTouchFeedback(dotBtn);
+    this.bindKeyAction(dotBtn, rightFaint, () => {
       this.handleCharPress('.');
     });
 
@@ -542,9 +652,7 @@ export class VirtualKeyboard {
       </svg>
     `;
     enterBtn.title = 'Enter / 回车';
-    enterBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.triggerKeyTouchFeedback(enterBtn);
+    this.bindKeyAction(enterBtn, rightFaint, () => {
       this.handleKeyPress('\r');
     });
 
@@ -570,18 +678,20 @@ export class VirtualKeyboard {
       leftHalf.appendChild(spaceKey);
 
       const rightHalf = document.createElement('div');
-      rightHalf.className = 'kb-half kb-half-right';
+      rightHalf.className = 'kb-half kb-half-right kb-faint-half';
       rightHalf.appendChild(dotBtn);
       rightHalf.appendChild(enterBtn);
+      this.bindFaintContainerScroll(rightHalf);
 
       r6.appendChild(leftHalf);
       r6.appendChild(rightHalf);
     } else {
       // variant === 'right'
       const leftHalf = document.createElement('div');
-      leftHalf.className = 'kb-half kb-half-left';
+      leftHalf.className = 'kb-half kb-half-left kb-faint-half';
       leftHalf.appendChild(switchBtn);
       leftHalf.appendChild(imeBtn);
+      this.bindFaintContainerScroll(leftHalf);
 
       const rightHalf = document.createElement('div');
       rightHalf.className = 'kb-half kb-half-right';
@@ -596,16 +706,13 @@ export class VirtualKeyboard {
     return r6;
   }
 
-  private createCharKey(char: string): HTMLButtonElement {
+  private createCharKey(char: string, isFaint = false): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'keycap key-char';
     btn.textContent = char;
 
-    btn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.triggerKeyTouchFeedback(btn);
+    this.bindKeyAction(btn, isFaint, () => {
       this.handleCharPress(char);
     });
 

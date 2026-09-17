@@ -1321,15 +1321,17 @@ html, body {
     position: relative;
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
     border: none !important;
+    box-shadow: none !important;
   }
 
-  /* Left Panel: solid on left 50%, completely transparent on right 50% */
+  /* Left Panel: solid on left 50%, completely transparent on right 50% - NO SHADOW / NO GLOW */
   .cyber-split-panel.panel-left {
     background: linear-gradient(to right, rgba(9, 13, 19, 0.96) 0%, rgba(9, 13, 19, 0.92) 50%, transparent 50%, transparent 100%) !important;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  /* Left Panel Top Border: ONLY on the left 50% (solid part), NO top border on the transparent part! */
+  /* Left Panel Top Border: crisp line without outer glow */
   .cyber-split-panel.panel-left::before {
     content: '';
     position: absolute;
@@ -1338,17 +1340,18 @@ html, body {
     width: 50%;
     height: 1px;
     background: var(--neon-cyan);
-    box-shadow: 0 0 8px var(--neon-cyan);
+    box-shadow: none !important;
     z-index: 2;
   }
 
-  /* Right Panel: solid on right 50%, completely transparent on left 50% */
+  /* Right Panel: solid on right 50%, completely transparent on left 50% - NO SHADOW / NO GLOW */
   .cyber-split-panel.panel-right {
     background: linear-gradient(to left, rgba(9, 13, 19, 0.96) 0%, rgba(9, 13, 19, 0.92) 50%, transparent 50%, transparent 100%) !important;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  /* Right Panel Top Border: ONLY on the right 50% (solid part), NO top border on the transparent part! */
+  /* Right Panel Top Border: crisp line without outer glow */
   .cyber-split-panel.panel-right::before {
     content: '';
     position: absolute;
@@ -1357,31 +1360,8 @@ html, body {
     width: 50%;
     height: 1px;
     background: var(--neon-green);
-    box-shadow: 0 0 8px var(--neon-green);
+    box-shadow: none !important;
     z-index: 2;
-  }
-
-  /* Inline collapse button inside Row 1 toolbar (no extra header row) */
-  .btn-collapse-inline {
-    background: rgba(255, 255, 255, 0.08) !important;
-    border-color: rgba(0, 229, 255, 0.35) !important;
-    color: var(--neon-cyan) !important;
-    opacity: 0.75;
-    transition: opacity 1.8s ease-out, filter 1.8s ease-out, background 0.15s ease;
-    cursor: pointer;
-    padding: 0 !important;
-  }
-
-  .btn-collapse-right {
-    border-color: rgba(0, 255, 159, 0.35) !important;
-    color: var(--neon-green) !important;
-  }
-
-  .btn-collapse-inline.flash-glow,
-  .btn-collapse-inline:active {
-    opacity: 1 !important;
-    filter: drop-shadow(0 0 10px currentColor) !important;
-    transition: opacity 0.05s ease, filter 0.05s ease !important;
   }
 
   /* Left Panel Collapsed: slides off to the left */
@@ -1398,11 +1378,11 @@ html, body {
     opacity: 0 !important;
   }
 
-  /* Edge Floating Toggle Button: suspended in the vertical middle of screen sides, tiny, faint & flush to edge */
+  /* Edge Floating Toggle Button: placed higher up (top: max(48px, 15vh)) to avoid overlapping with keyboard */
   .btn-edge-toggle {
     position: fixed;
-    top: 50%;
-    transform: translateY(-50%);
+    top: max(48px, 15vh);
+    transform: none;
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1440,14 +1420,14 @@ html, body {
   .btn-edge-toggle:active {
     opacity: 1 !important;
     filter: drop-shadow(0 0 10px currentColor) !important;
-    transform: translateY(-50%) scale(1.15) !important;
+    transform: scale(1.18) !important;
     transition: opacity 0.05s ease, filter 0.05s ease, transform 0.05s ease !important;
   }
 
   /* Left Panel: Left half solid. Right half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are 10% transparent */
   .cyber-split-panel.panel-left .kb-half-left {
     opacity: 1;
-    filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
+    filter: none !important;
   }
 
   .cyber-split-panel.panel-left .kb-half-right {
@@ -1497,7 +1477,7 @@ html, body {
   /* Right Panel: Right half solid. Left half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are 10% transparent */
   .cyber-split-panel.panel-right .kb-half-right {
     opacity: 1;
-    filter: drop-shadow(0 0 3px rgba(0, 255, 159, 0.2));
+    filter: none !important;
   }
 
   .cyber-split-panel.panel-right .kb-half-left {
@@ -1544,6 +1524,11 @@ html, body {
     transition: stroke 0.05s ease !important;
   }
 
+  /* Faint half drag-scroll support */
+  .cyber-split-panel .kb-faint-half {
+    touch-action: none !important;
+  }
+
   /* Compact Keys & Zero-Gap layout in landscape split panels */
   .cyber-split-panel .keyboard-inner-body {
     display: flex !important;
@@ -1555,31 +1540,23 @@ html, body {
     justify-content: space-between !important;
   }
 
-  .cyber-split-panel .quick-toolbar {
+  /* Make main rows display: contents so all 6 rows are direct flex children of keyboard-inner-body */
+  .cyber-split-panel .keyboard-main-rows {
+    display: contents !important;
+  }
+
+  /* Every row (including Row 1 quick toolbar) has IDENTICAL flex: 1 height */
+  .cyber-split-panel .quick-toolbar,
+  .cyber-split-panel .keyboard-row {
     display: flex !important;
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
     gap: 2px !important;
     margin: 0 !important;
     padding: 0 !important;
     border-bottom: none !important;
-    flex: 1 1 0 !important;
-  }
-
-  .cyber-split-panel .keyboard-main-rows {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 2px !important;
-    flex: 5 1 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    justify-content: space-between !important;
-  }
-
-  .cyber-split-panel .keyboard-row {
-    display: flex !important;
-    flex: 1 1 0 !important;
-    gap: 2px !important;
-    margin: 0 !important;
-    padding: 0 !important;
     width: 100% !important;
   }
 
@@ -1589,21 +1566,19 @@ html, body {
     margin: 0 !important;
     padding: 0 !important;
     flex: 1 1 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
   }
 
-  .cyber-split-panel .keycap {
+  /* Symbol buttons and letter buttons have identical height */
+  .cyber-split-panel .keycap,
+  .cyber-split-panel .key-toolbar-compact {
     height: 100% !important;
-    min-height: 22px !important;
-    max-height: 38px !important;
+    min-height: 0 !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 1px !important;
     font-size: 11px !important;
     border-radius: 4px !important;
-  }
-
-  .cyber-split-panel .key-toolbar-compact {
-    height: 100% !important;
-    min-height: 20px !important;
-    font-size: 10px !important;
   }
 }

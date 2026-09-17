@@ -67,6 +67,7 @@ class WebTermApp {
       onInput: (data) => this.sendInput(data),
       onResizeTrigger: () => this.terminalManager.fit(),
       onToggleNativeIME: () => this.nativeIMEBridge.toggle(),
+      onScrollTerminal: (deltaY) => this.terminalManager.scrollByDeltaY(deltaY),
       speechManager: this.speechManager
     });
     appEl.appendChild(this.virtualKeyboard.getElement());
