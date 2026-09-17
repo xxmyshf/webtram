@@ -20,6 +20,8 @@ export class VirtualKeyboard {
   // Landscape individual panel collapse states
   private isLeftCollapsed = false;
   private isRightCollapsed = false;
+  private edgeToggleLeft: HTMLButtonElement | null = null;
+  private edgeToggleRight: HTMLButtonElement | null = null;
 
   // Latch mode for Ctrl
   private ctrlLatched = false;
@@ -133,44 +135,51 @@ export class VirtualKeyboard {
     landscapeWrapper.appendChild(this.createSplitPanel('right'));
     this.container.appendChild(landscapeWrapper);
 
-    // 3. Floating Edge Expand Buttons (visible on screen edges in landscape when collapsed)
-    const edgeExpandLeft = document.createElement('button');
-    edgeExpandLeft.type = 'button';
-    edgeExpandLeft.className = 'btn-edge-expand expand-left';
-    edgeExpandLeft.title = '展开左侧键盘';
-    edgeExpandLeft.innerHTML = `
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 18 15 12 9 6"></polyline>
-      </svg>
-    `;
-    edgeExpandLeft.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.triggerButtonFlash(edgeExpandLeft);
-      this.toggleSplitPanelCollapse('left', false);
-    });
-    this.container.appendChild(edgeExpandLeft);
-
-    const edgeExpandRight = document.createElement('button');
-    edgeExpandRight.type = 'button';
-    edgeExpandRight.className = 'btn-edge-expand expand-right';
-    edgeExpandRight.title = '展开右侧键盘';
-    edgeExpandRight.innerHTML = `
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    // 3. Floating Edge Toggle Buttons (Collapse & Expand) in Landscape
+    this.edgeToggleLeft = document.createElement('button');
+    this.edgeToggleLeft.type = 'button';
+    this.edgeToggleLeft.className = 'btn-edge-toggle toggle-left';
+    this.edgeToggleLeft.title = '收起左侧键盘';
+    this.edgeToggleLeft.innerHTML = `
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 18 9 12 15 6"></polyline>
       </svg>
     `;
-    edgeExpandRight.addEventListener('click', (e) => {
+    this.edgeToggleLeft.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.triggerButtonFlash(edgeExpandRight);
-      this.toggleSplitPanelCollapse('right', false);
+      this.triggerButtonFlash(this.edgeToggleLeft!);
+      this.toggleSplitPanelCollapse('left');
     });
-    this.container.appendChild(edgeExpandRight);
+    this.container.appendChild(this.edgeToggleLeft);
+
+    this.edgeToggleRight = document.createElement('button');
+    this.edgeToggleRight.type = 'button';
+    this.edgeToggleRight.className = 'btn-edge-toggle toggle-right';
+    this.edgeToggleRight.title = '收起右侧键盘';
+    this.edgeToggleRight.innerHTML = `
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    `;
+    this.edgeToggleRight.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.triggerButtonFlash(this.edgeToggleRight!);
+      this.toggleSplitPanelCollapse('right');
+    });
+    this.container.appendChild(this.edgeToggleRight);
   }
 
   private triggerButtonFlash(el: HTMLElement): void {
     el.classList.add('flash-glow');
     setTimeout(() => {
       el.classList.remove('flash-glow');
+    }, 120);
+  }
+
+  private triggerKeyTouchFeedback(el: HTMLElement): void {
+    el.classList.add('key-active-flash');
+    setTimeout(() => {
+      el.classList.remove('key-active-flash');
     }, 120);
   }
 
@@ -197,9 +206,26 @@ export class VirtualKeyboard {
       if (panel) panel.classList.toggle('collapsed', this.isRightCollapsed);
       appEl?.classList.toggle('is-right-collapsed', this.isRightCollapsed);
     }
+    this.updateEdgeToggleIcons();
     this.triggerHaptic(15);
     setTimeout(() => this.onResizeTrigger?.(), 50);
     setTimeout(() => this.onResizeTrigger?.(), 280);
+  }
+
+  private updateEdgeToggleIcons(): void {
+    if (this.edgeToggleLeft) {
+      this.edgeToggleLeft.innerHTML = this.isLeftCollapsed
+        ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`
+        : `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+      this.edgeToggleLeft.title = this.isLeftCollapsed ? '展开左侧键盘' : '收起左侧键盘';
+    }
+
+    if (this.edgeToggleRight) {
+      this.edgeToggleRight.innerHTML = this.isRightCollapsed
+        ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>`
+        : `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+      this.edgeToggleRight.title = this.isRightCollapsed ? '展开右侧键盘' : '收起右侧键盘';
+    }
   }
 
   private createKeyboardBody(variant: 'portrait' | 'left' | 'right'): HTMLElement {
@@ -259,7 +285,7 @@ export class VirtualKeyboard {
   }
 
   /**
-   * Row 1: CLI Quick Toolbar (with integrated collapse button on outer edge in landscape)
+   * Row 1: CLI Quick Toolbar (symmetric, compact, zero gap)
    */
   private createQuickToolbar(variant: 'portrait' | 'left' | 'right'): HTMLElement {
     const toolsLeft: Array<{ label: string; value?: string; special?: string; repeat?: boolean }> = [
@@ -285,43 +311,6 @@ export class VirtualKeyboard {
     const leftBtns = toolsLeft.map((item) => this.createToolButton(item));
     const rightBtns = toolsRight.map((item) => this.createToolButton(item));
 
-    // In landscape mode, insert collapse button directly into the outer edge of Row 1 so it doesn't take a whole line
-    if (variant === 'left') {
-      const collapseLeftBtn = document.createElement('button');
-      collapseLeftBtn.type = 'button';
-      collapseLeftBtn.className = 'keycap key-fn key-toolbar-compact btn-collapse-inline btn-collapse-left';
-      collapseLeftBtn.title = '收起左侧键盘';
-      collapseLeftBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-      `;
-      collapseLeftBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.triggerButtonFlash(collapseLeftBtn);
-        this.toggleSplitPanelCollapse('left', true);
-      });
-      leftBtns.unshift(collapseLeftBtn);
-    } else if (variant === 'right') {
-      const collapseRightBtn = document.createElement('button');
-      collapseRightBtn.type = 'button';
-      collapseRightBtn.className = 'keycap key-fn key-toolbar-compact btn-collapse-inline btn-collapse-right';
-      collapseRightBtn.title = '收起右侧键盘';
-      collapseRightBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      `;
-      collapseRightBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.triggerButtonFlash(collapseRightBtn);
-        this.toggleSplitPanelCollapse('right', true);
-      });
-      rightBtns.push(collapseRightBtn);
-    }
-
     const row = this.createSplitRow(leftBtns, rightBtns);
     row.classList.add('quick-toolbar');
     return row;
@@ -341,6 +330,7 @@ export class VirtualKeyboard {
       keyBtn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        this.triggerKeyTouchFeedback(keyBtn);
         this.toggleCtrlLatch();
       });
     } else if (item.repeat) {
@@ -348,6 +338,7 @@ export class VirtualKeyboard {
       keyBtn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        this.triggerKeyTouchFeedback(keyBtn);
         this.startKeyRepeat(item.value!);
       });
     } else {
@@ -355,6 +346,7 @@ export class VirtualKeyboard {
       keyBtn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        this.triggerKeyTouchFeedback(keyBtn);
         this.handleKeyPress(item.value!);
       });
     }
@@ -450,6 +442,7 @@ export class VirtualKeyboard {
     `;
     shiftBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      this.triggerKeyTouchFeedback(shiftBtn);
       this.handleShiftTap();
     });
     return shiftBtn;
@@ -468,6 +461,7 @@ export class VirtualKeyboard {
     `;
     bkspBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      this.triggerKeyTouchFeedback(bkspBtn);
       this.handleKeyPress('\x7f');
     });
     return bkspBtn;
@@ -484,6 +478,7 @@ export class VirtualKeyboard {
     switchBtn.textContent = modeSwitcherLabel;
     switchBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      this.triggerKeyTouchFeedback(switchBtn);
       this.triggerHaptic(15);
       this.currentMode = this.currentMode === 'alpha' ? 'symbols' : 'alpha';
       this.updateMainRows();
@@ -502,6 +497,7 @@ export class VirtualKeyboard {
     imeBtn.title = '唤起系统原生输入法';
     imeBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      this.triggerKeyTouchFeedback(imeBtn);
       this.triggerHaptic(15);
       this.onToggleNativeIME?.();
     });
@@ -531,6 +527,7 @@ export class VirtualKeyboard {
     dotBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      this.triggerKeyTouchFeedback(dotBtn);
       this.handleCharPress('.');
     });
 
@@ -547,6 +544,7 @@ export class VirtualKeyboard {
     enterBtn.title = 'Enter / 回车';
     enterBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      this.triggerKeyTouchFeedback(enterBtn);
       this.handleKeyPress('\r');
     });
 
@@ -607,6 +605,7 @@ export class VirtualKeyboard {
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      this.triggerKeyTouchFeedback(btn);
       this.handleCharPress(char);
     });
 

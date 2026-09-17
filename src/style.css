@@ -530,7 +530,8 @@ html, body {
   display: none;
 }
 
-/* Edge expand buttons must ALWAYS remain hidden in portrait mode */
+/* Edge toggle buttons must ALWAYS remain hidden in portrait mode */
+.btn-edge-toggle,
 .btn-edge-expand {
   display: none !important;
 }
@@ -1397,54 +1398,53 @@ html, body {
     opacity: 0 !important;
   }
 
-  /* Edge Expand Buttons: located in the vertical center of each screen edge, ONLY icon, NO border */
-  .btn-edge-expand {
+  /* Edge Floating Toggle Button: suspended in the vertical middle of screen sides, tiny, faint & flush to edge */
+  .btn-edge-toggle {
     position: fixed;
     top: 50%;
     transform: translateY(-50%);
-    display: none;
+    display: flex !important;
     align-items: center;
     justify-content: center;
     background: transparent !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    padding: 12px 6px;
+    padding: 8px 1px;
     cursor: pointer;
-    z-index: 40;
-    opacity: 0.35;
+    z-index: 50;
+    opacity: 0.18;
     pointer-events: auto;
     transition: opacity 1.8s ease-out, filter 1.8s ease-out, transform 0.1s ease;
   }
 
-  .btn-edge-expand.expand-left {
-    left: 4px;
+  .btn-edge-toggle.toggle-left {
+    left: 1px;
     color: var(--neon-cyan);
   }
 
-  .btn-edge-expand.expand-right {
-    right: 4px;
+  .btn-edge-toggle.toggle-right {
+    right: 1px;
     color: var(--neon-green);
   }
 
-  #app.is-left-collapsed .btn-edge-expand.expand-left {
-    display: flex !important;
-  }
-
-  #app.is-right-collapsed .btn-edge-expand.expand-right {
-    display: flex !important;
+  @media (hover: hover) {
+    .btn-edge-toggle:hover {
+      opacity: 0.75;
+      transition: opacity 0.15s ease;
+    }
   }
 
   /* Clicking lights up immediately, then dims back down over ~2s */
-  .btn-edge-expand.flash-glow,
-  .btn-edge-expand:active {
+  .btn-edge-toggle.flash-glow,
+  .btn-edge-toggle:active {
     opacity: 1 !important;
-    filter: drop-shadow(0 0 12px currentColor) !important;
-    transform: translateY(-50%) scale(1.2) !important;
+    filter: drop-shadow(0 0 10px currentColor) !important;
+    transform: translateY(-50%) scale(1.15) !important;
     transition: opacity 0.05s ease, filter 0.05s ease, transform 0.05s ease !important;
   }
 
-  /* Left Panel: Left half solid. Right half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are semi-transparent */
+  /* Left Panel: Left half solid. Right half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are 10% transparent */
   .cyber-split-panel.panel-left .kb-half-left {
     opacity: 1;
     filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
@@ -1458,39 +1458,43 @@ html, body {
   .cyber-split-panel.panel-left .kb-half-right .keycap {
     background: transparent !important;
     border: 1px solid transparent !important;
+    outline: none !important;
     box-shadow: none !important;
-    color: rgba(0, 229, 255, 0.5) !important;
-    transition: color 0.1s ease, background 0.1s ease, border-color 0.1s ease;
+    color: var(--neon-cyan) !important;
+    opacity: 0.1 !important;
+    transition: opacity 2s ease-out, background 2s ease-out, border-color 2s ease-out, box-shadow 2s ease-out, color 2s ease-out;
   }
 
   .cyber-split-panel.panel-left .kb-half-right .keycap svg {
-    stroke: rgba(0, 229, 255, 0.5) !important;
+    stroke: var(--neon-cyan) !important;
+    transition: stroke 2s ease-out;
   }
 
-  .cyber-split-panel.panel-left .kb-half-right .keycap:hover {
-    color: rgba(0, 229, 255, 0.85) !important;
-    border-color: rgba(0, 229, 255, 0.25) !important;
-    background: rgba(0, 229, 255, 0.08) !important;
+  @media (hover: hover) {
+    .cyber-split-panel.panel-left .kb-half-right .keycap:hover {
+      opacity: 0.5 !important;
+      transition: opacity 0.15s ease;
+    }
   }
 
-  .cyber-split-panel.panel-left .kb-half-right .keycap:hover svg {
-    stroke: rgba(0, 229, 255, 0.85) !important;
-  }
-
+  /* When pressed, flashes bright immediately, then fades back to 10% opacity over 2s */
   .cyber-split-panel.panel-left .kb-half-right .keycap:active,
-  .cyber-split-panel.panel-left .kb-half-right .keycap.active-touch {
+  .cyber-split-panel.panel-left .kb-half-right .keycap.key-active-flash {
     background: rgba(0, 229, 255, 0.25) !important;
     color: #ffffff !important;
-    border-color: var(--neon-cyan) !important;
-    box-shadow: 0 0 10px var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 229, 255, 0.6) !important;
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.5) !important;
+    opacity: 1 !important;
+    transition: opacity 0.05s ease, background 0.05s ease, border-color 0.05s ease, box-shadow 0.05s ease, color 0.05s ease !important;
   }
 
   .cyber-split-panel.panel-left .kb-half-right .keycap:active svg,
-  .cyber-split-panel.panel-left .kb-half-right .keycap.active-touch svg {
+  .cyber-split-panel.panel-left .kb-half-right .keycap.key-active-flash svg {
     stroke: #ffffff !important;
+    transition: stroke 0.05s ease !important;
   }
 
-  /* Right Panel: Right half solid. Left half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are semi-transparent */
+  /* Right Panel: Right half solid. Left half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are 10% transparent */
   .cyber-split-panel.panel-right .kb-half-right {
     opacity: 1;
     filter: drop-shadow(0 0 3px rgba(0, 255, 159, 0.2));
@@ -1504,57 +1508,102 @@ html, body {
   .cyber-split-panel.panel-right .kb-half-left .keycap {
     background: transparent !important;
     border: 1px solid transparent !important;
+    outline: none !important;
     box-shadow: none !important;
-    color: rgba(0, 255, 159, 0.5) !important;
-    transition: color 0.1s ease, background 0.1s ease, border-color 0.1s ease;
+    color: var(--neon-green) !important;
+    opacity: 0.1 !important;
+    transition: opacity 2s ease-out, background 2s ease-out, border-color 2s ease-out, box-shadow 2s ease-out, color 2s ease-out;
   }
 
   .cyber-split-panel.panel-right .kb-half-left .keycap svg {
-    stroke: rgba(0, 255, 159, 0.5) !important;
+    stroke: var(--neon-green) !important;
+    transition: stroke 2s ease-out;
   }
 
-  .cyber-split-panel.panel-right .kb-half-left .keycap:hover {
-    color: rgba(0, 255, 159, 0.85) !important;
-    border-color: rgba(0, 255, 159, 0.25) !important;
-    background: rgba(0, 255, 159, 0.08) !important;
+  @media (hover: hover) {
+    .cyber-split-panel.panel-right .kb-half-left .keycap:hover {
+      opacity: 0.5 !important;
+      transition: opacity 0.15s ease;
+    }
   }
 
-  .cyber-split-panel.panel-right .kb-half-left .keycap:hover svg {
-    stroke: rgba(0, 255, 159, 0.85) !important;
-  }
-
+  /* When pressed, flashes bright immediately, then fades back to 10% opacity over 2s */
   .cyber-split-panel.panel-right .kb-half-left .keycap:active,
-  .cyber-split-panel.panel-right .kb-half-left .keycap.active-touch {
+  .cyber-split-panel.panel-right .kb-half-left .keycap.key-active-flash {
     background: rgba(0, 255, 159, 0.25) !important;
     color: #ffffff !important;
-    border-color: var(--neon-green) !important;
-    box-shadow: 0 0 10px var(--neon-green) !important;
+    border: 1px solid rgba(0, 255, 159, 0.6) !important;
+    box-shadow: 0 0 12px rgba(0, 255, 159, 0.5) !important;
+    opacity: 1 !important;
+    transition: opacity 0.05s ease, background 0.05s ease, border-color 0.05s ease, box-shadow 0.05s ease, color 0.05s ease !important;
   }
 
   .cyber-split-panel.panel-right .kb-half-left .keycap:active svg,
-  .cyber-split-panel.panel-right .kb-half-left .keycap.active-touch svg {
+  .cyber-split-panel.panel-right .kb-half-left .keycap.key-active-flash svg {
     stroke: #ffffff !important;
+    transition: stroke 0.05s ease !important;
   }
 
-  /* Keys in landscape split panels */
-  .cyber-split-panel .keycap {
-    height: 28px;
-    font-size: 11px;
-    border-radius: 4px;
-  }
-
-  .cyber-split-panel .key-toolbar-compact {
-    height: 22px;
-    font-size: 9px;
-  }
-
+  /* Compact Keys & Zero-Gap layout in landscape split panels */
   .cyber-split-panel .keyboard-inner-body {
-    gap: 3px;
-    height: 100%;
-    justify-content: space-around;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    justify-content: space-between !important;
+  }
+
+  .cyber-split-panel .quick-toolbar {
+    display: flex !important;
+    gap: 2px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-bottom: none !important;
+    flex: 1 1 0 !important;
+  }
+
+  .cyber-split-panel .keyboard-main-rows {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    flex: 5 1 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    justify-content: space-between !important;
+  }
+
+  .cyber-split-panel .keyboard-row {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    gap: 2px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
   }
 
   .cyber-split-panel .kb-half {
-    gap: 3px;
+    display: flex !important;
+    gap: 2px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 1 1 0 !important;
+  }
+
+  .cyber-split-panel .keycap {
+    height: 100% !important;
+    min-height: 22px !important;
+    max-height: 38px !important;
+    margin: 0 !important;
+    padding: 0 1px !important;
+    font-size: 11px !important;
+    border-radius: 4px !important;
+  }
+
+  .cyber-split-panel .key-toolbar-compact {
+    height: 100% !important;
+    min-height: 20px !important;
+    font-size: 10px !important;
   }
 }
