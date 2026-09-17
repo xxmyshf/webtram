@@ -530,6 +530,11 @@ html, body {
   display: none;
 }
 
+/* Edge expand buttons must ALWAYS remain hidden in portrait mode */
+.btn-edge-expand {
+  display: none !important;
+}
+
 .keyboard-inner-body {
   display: flex;
   flex-direction: column;
@@ -1317,9 +1322,9 @@ html, body {
     border: none !important;
   }
 
-  /* Left Panel: solid on left 50%, transparent on right 50% */
+  /* Left Panel: solid on left 50%, completely transparent on right 50% */
   .cyber-split-panel.panel-left {
-    background: linear-gradient(to right, rgba(9, 13, 19, 0.96) 0%, rgba(9, 13, 19, 0.88) 50%, transparent 100%);
+    background: linear-gradient(to right, rgba(9, 13, 19, 0.96) 0%, rgba(9, 13, 19, 0.92) 50%, transparent 50%, transparent 100%) !important;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
   }
 
@@ -1336,9 +1341,9 @@ html, body {
     z-index: 2;
   }
 
-  /* Right Panel: solid on right 50%, transparent on left 50% */
+  /* Right Panel: solid on right 50%, completely transparent on left 50% */
   .cyber-split-panel.panel-right {
-    background: linear-gradient(to left, rgba(9, 13, 19, 0.96) 0%, rgba(9, 13, 19, 0.88) 50%, transparent 100%);
+    background: linear-gradient(to left, rgba(9, 13, 19, 0.96) 0%, rgba(9, 13, 19, 0.92) 50%, transparent 50%, transparent 100%) !important;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
   }
 
@@ -1355,76 +1360,24 @@ html, body {
     z-index: 2;
   }
 
-  /* Headers: Left button on outer left, Right button on outer right */
-  .split-panel-header {
-    display: flex;
-    align-items: center;
-    height: 24px;
-    padding: 0 4px;
-    margin-bottom: 2px;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    flex-shrink: 0;
-  }
-
-  .header-left {
-    justify-content: flex-start;
-    gap: 8px;
-  }
-
-  .header-right {
-    justify-content: flex-end;
-    gap: 8px;
-  }
-
-  .split-panel-badge {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: var(--text-dim);
-  }
-
-  .badge-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--neon-cyan);
-    box-shadow: 0 0 6px var(--neon-cyan);
-  }
-
-  .panel-right .badge-dot {
-    background: var(--neon-green);
-    box-shadow: 0 0 6px var(--neon-green);
-  }
-
-  /* Collapse toggle button: Icon only, styled crisply */
-  .btn-split-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 22px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(0, 229, 255, 0.3);
-    color: var(--neon-cyan);
-    border-radius: 4px;
-    cursor: pointer;
-    transition: opacity 1.8s ease-out, filter 1.8s ease-out, background 0.15s ease;
-    padding: 0;
+  /* Inline collapse button inside Row 1 toolbar (no extra header row) */
+  .btn-collapse-inline {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(0, 229, 255, 0.35) !important;
+    color: var(--neon-cyan) !important;
     opacity: 0.75;
+    transition: opacity 1.8s ease-out, filter 1.8s ease-out, background 0.15s ease;
+    cursor: pointer;
+    padding: 0 !important;
   }
 
-  .header-right .btn-split-toggle {
-    border-color: rgba(0, 255, 159, 0.35);
-    color: var(--neon-green);
+  .btn-collapse-right {
+    border-color: rgba(0, 255, 159, 0.35) !important;
+    color: var(--neon-green) !important;
   }
 
-  .btn-split-toggle.flash-glow,
-  .btn-split-toggle:active {
+  .btn-collapse-inline.flash-glow,
+  .btn-collapse-inline:active {
     opacity: 1 !important;
     filter: drop-shadow(0 0 10px currentColor) !important;
     transition: opacity 0.05s ease, filter 0.05s ease !important;
@@ -1491,54 +1444,96 @@ html, body {
     transition: opacity 0.05s ease, filter 0.05s ease, transform 0.05s ease !important;
   }
 
-  /* Left Panel Opacity rules (左半部100%实色，右半部10%淡色悬浮于终端上方，可触控) */
+  /* Left Panel: Left half solid. Right half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are semi-transparent */
   .cyber-split-panel.panel-left .kb-half-left {
     opacity: 1;
     filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
   }
 
   .cyber-split-panel.panel-left .kb-half-right {
-    opacity: 0.10;
     background: transparent !important;
-    transition: opacity 0.15s ease;
+    opacity: 1 !important;
   }
 
   .cyber-split-panel.panel-left .kb-half-right .keycap {
-    background: rgba(0, 229, 255, 0.03);
-    border-color: rgba(0, 229, 255, 0.2);
-    color: var(--neon-cyan);
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    color: rgba(0, 229, 255, 0.5) !important;
+    transition: color 0.1s ease, background 0.1s ease, border-color 0.1s ease;
   }
 
-  .cyber-split-panel.panel-left .kb-half-right:hover,
-  .cyber-split-panel.panel-left .kb-half-right:active,
-  .cyber-split-panel.panel-left .kb-half-right .keycap:active {
-    opacity: 0.65;
-    filter: none;
+  .cyber-split-panel.panel-left .kb-half-right .keycap svg {
+    stroke: rgba(0, 229, 255, 0.5) !important;
   }
 
-  /* Right Panel Opacity rules (右半部100%实色，左半部10%淡色悬浮于终端上方，可触控) */
+  .cyber-split-panel.panel-left .kb-half-right .keycap:hover {
+    color: rgba(0, 229, 255, 0.85) !important;
+    border-color: rgba(0, 229, 255, 0.25) !important;
+    background: rgba(0, 229, 255, 0.08) !important;
+  }
+
+  .cyber-split-panel.panel-left .kb-half-right .keycap:hover svg {
+    stroke: rgba(0, 229, 255, 0.85) !important;
+  }
+
+  .cyber-split-panel.panel-left .kb-half-right .keycap:active,
+  .cyber-split-panel.panel-left .kb-half-right .keycap.active-touch {
+    background: rgba(0, 229, 255, 0.25) !important;
+    color: #ffffff !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 10px var(--neon-cyan) !important;
+  }
+
+  .cyber-split-panel.panel-left .kb-half-right .keycap:active svg,
+  .cyber-split-panel.panel-left .kb-half-right .keycap.active-touch svg {
+    stroke: #ffffff !important;
+  }
+
+  /* Right Panel: Right half solid. Left half (faint) has COMPLETELY TRANSPARENT BACKGROUND and only text/icons are semi-transparent */
   .cyber-split-panel.panel-right .kb-half-right {
     opacity: 1;
     filter: drop-shadow(0 0 3px rgba(0, 255, 159, 0.2));
   }
 
   .cyber-split-panel.panel-right .kb-half-left {
-    opacity: 0.10;
     background: transparent !important;
-    transition: opacity 0.15s ease;
+    opacity: 1 !important;
   }
 
   .cyber-split-panel.panel-right .kb-half-left .keycap {
-    background: rgba(0, 255, 159, 0.03);
-    border-color: rgba(0, 255, 159, 0.2);
-    color: var(--neon-green);
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    color: rgba(0, 255, 159, 0.5) !important;
+    transition: color 0.1s ease, background 0.1s ease, border-color 0.1s ease;
   }
 
-  .cyber-split-panel.panel-right .kb-half-left:hover,
-  .cyber-split-panel.panel-right .kb-half-left:active,
-  .cyber-split-panel.panel-right .kb-half-left .keycap:active {
-    opacity: 0.65;
-    filter: none;
+  .cyber-split-panel.panel-right .kb-half-left .keycap svg {
+    stroke: rgba(0, 255, 159, 0.5) !important;
+  }
+
+  .cyber-split-panel.panel-right .kb-half-left .keycap:hover {
+    color: rgba(0, 255, 159, 0.85) !important;
+    border-color: rgba(0, 255, 159, 0.25) !important;
+    background: rgba(0, 255, 159, 0.08) !important;
+  }
+
+  .cyber-split-panel.panel-right .kb-half-left .keycap:hover svg {
+    stroke: rgba(0, 255, 159, 0.85) !important;
+  }
+
+  .cyber-split-panel.panel-right .kb-half-left .keycap:active,
+  .cyber-split-panel.panel-right .kb-half-left .keycap.active-touch {
+    background: rgba(0, 255, 159, 0.25) !important;
+    color: #ffffff !important;
+    border-color: var(--neon-green) !important;
+    box-shadow: 0 0 10px var(--neon-green) !important;
+  }
+
+  .cyber-split-panel.panel-right .kb-half-left .keycap:active svg,
+  .cyber-split-panel.panel-right .kb-half-left .keycap.active-touch svg {
+    stroke: #ffffff !important;
   }
 
   /* Keys in landscape split panels */
@@ -1549,13 +1544,13 @@ html, body {
   }
 
   .cyber-split-panel .key-toolbar-compact {
-    height: 20px;
+    height: 22px;
     font-size: 9px;
   }
 
   .cyber-split-panel .keyboard-inner-body {
     gap: 3px;
-    height: calc(100% - 26px);
+    height: 100%;
     justify-content: space-around;
   }
 

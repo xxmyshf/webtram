@@ -180,51 +180,7 @@ export class VirtualKeyboard {
   private createSplitPanel(side: 'left' | 'right'): HTMLElement {
     const panel = document.createElement('div');
     panel.className = `cyber-split-panel panel-${side}`;
-
-    const header = document.createElement('div');
-    header.className = `split-panel-header header-${side}`;
-
-    if (side === 'left') {
-      header.innerHTML = `
-        <button type="button" class="btn-split-toggle btn-toggle-left" title="收起左侧键盘">
-          <svg class="toggle-icon toggle-icon-left" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
-        <div class="split-panel-badge">
-          <span class="badge-dot"></span>
-          <span>L</span>
-        </div>
-      `;
-    } else {
-      header.innerHTML = `
-        <div class="split-panel-badge">
-          <span>R</span>
-          <span class="badge-dot"></span>
-        </div>
-        <button type="button" class="btn-split-toggle btn-toggle-right" title="收起右侧键盘">
-          <svg class="toggle-icon toggle-icon-right" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-      `;
-    }
-
-    const toggleBtn = header.querySelector('.btn-split-toggle') as HTMLElement;
-    toggleBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.triggerButtonFlash(toggleBtn);
-      this.toggleSplitPanelCollapse(side);
-    });
-
-    header.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleSplitPanelCollapse(side);
-    });
-
-    panel.appendChild(header);
     panel.appendChild(this.createKeyboardBody(side));
-
     return panel;
   }
 
@@ -235,15 +191,11 @@ export class VirtualKeyboard {
       const panel = this.container.querySelector('.panel-left') as HTMLElement;
       if (panel) panel.classList.toggle('collapsed', this.isLeftCollapsed);
       appEl?.classList.toggle('is-left-collapsed', this.isLeftCollapsed);
-      const btn = panel?.querySelector('.btn-toggle-left') as HTMLElement;
-      if (btn) this.triggerButtonFlash(btn);
     } else {
       this.isRightCollapsed = force !== undefined ? force : !this.isRightCollapsed;
       const panel = this.container.querySelector('.panel-right') as HTMLElement;
       if (panel) panel.classList.toggle('collapsed', this.isRightCollapsed);
       appEl?.classList.toggle('is-right-collapsed', this.isRightCollapsed);
-      const btn = panel?.querySelector('.btn-toggle-right') as HTMLElement;
-      if (btn) this.triggerButtonFlash(btn);
     }
     this.triggerHaptic(15);
     setTimeout(() => this.onResizeTrigger?.(), 50);
@@ -254,8 +206,8 @@ export class VirtualKeyboard {
     const body = document.createElement('div');
     body.className = 'keyboard-inner-body';
 
-    // Row 1: CLI Quick Toolbar (7 keys on left half, 7 keys on right half)
-    body.appendChild(this.createQuickToolbar());
+    // Row 1: CLI Quick Toolbar (with inline collapse button in landscape)
+    body.appendChild(this.createQuickToolbar(variant));
 
     // Main dynamic keys area (Row 2: Numbers, Row 3-5: Keys, Row 6: Actions)
     const mainKeys = document.createElement('div');
@@ -307,9 +259,9 @@ export class VirtualKeyboard {
   }
 
   /**
-   * Row 1: CLI Quick Toolbar (7 keys on left, 7 keys on right)
+   * Row 1: CLI Quick Toolbar (with integrated collapse button on outer edge in landscape)
    */
-  private createQuickToolbar(): HTMLElement {
+  private createQuickToolbar(variant: 'portrait' | 'left' | 'right'): HTMLElement {
     const toolsLeft: Array<{ label: string; value?: string; special?: string; repeat?: boolean }> = [
       { label: 'Esc', value: '\x1b' },
       { label: '^', special: 'ctrl-latch' },
@@ -332,6 +284,43 @@ export class VirtualKeyboard {
 
     const leftBtns = toolsLeft.map((item) => this.createToolButton(item));
     const rightBtns = toolsRight.map((item) => this.createToolButton(item));
+
+    // In landscape mode, insert collapse button directly into the outer edge of Row 1 so it doesn't take a whole line
+    if (variant === 'left') {
+      const collapseLeftBtn = document.createElement('button');
+      collapseLeftBtn.type = 'button';
+      collapseLeftBtn.className = 'keycap key-fn key-toolbar-compact btn-collapse-inline btn-collapse-left';
+      collapseLeftBtn.title = '收起左侧键盘';
+      collapseLeftBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      `;
+      collapseLeftBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.triggerButtonFlash(collapseLeftBtn);
+        this.toggleSplitPanelCollapse('left', true);
+      });
+      leftBtns.unshift(collapseLeftBtn);
+    } else if (variant === 'right') {
+      const collapseRightBtn = document.createElement('button');
+      collapseRightBtn.type = 'button';
+      collapseRightBtn.className = 'keycap key-fn key-toolbar-compact btn-collapse-inline btn-collapse-right';
+      collapseRightBtn.title = '收起右侧键盘';
+      collapseRightBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      `;
+      collapseRightBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.triggerButtonFlash(collapseRightBtn);
+        this.toggleSplitPanelCollapse('right', true);
+      });
+      rightBtns.push(collapseRightBtn);
+    }
 
     const row = this.createSplitRow(leftBtns, rightBtns);
     row.classList.add('quick-toolbar');
