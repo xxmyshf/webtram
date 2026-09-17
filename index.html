@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#090d13" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>WebTerm // Cyberpunk PTY Terminal</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23090d13'/><path d='M30 35 L50 50 L30 65' stroke='%2300e5ff' stroke-width='10' fill='none' stroke-linecap='round'/><line x1='55' y1='65' x2='75' y2='65' stroke='%2300ff9f' stroke-width='10' stroke-linecap='round'/></svg>" />
+    <script>
+      // Runtime dynamic configuration
+      window.TERMINAL_CONFIG = window.TERMINAL_CONFIG || {
+        asrApiUrl: '/api/asr'
+      };
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
