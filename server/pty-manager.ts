@@ -1,10 +1,10 @@
-import * as pty from 'node-pty';
+import { getPty, IPty } from './pty-adapter.js';
 import { WebSocket } from 'ws';
 import { RingBuffer } from './ring-buffer.js';
 
 export interface TerminalSession {
   id: string;
-  ptyProcess: pty.IPty;
+  ptyProcess: IPty;
   ringBuffer: RingBuffer;
   clients: Set<WebSocket>;
   cols: number;
@@ -54,7 +54,8 @@ export class PtyManager {
       LANG: process.env.LANG || 'en_US.UTF-8'
     };
 
-    const ptyProcess = pty.spawn(this.defaultShell, [], {
+    const ptyMod = getPty();
+    const ptyProcess = ptyMod.spawn(this.defaultShell, [], {
       name: 'xterm-256color',
       cols: initialCols,
       rows: initialRows,

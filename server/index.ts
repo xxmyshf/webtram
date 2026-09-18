@@ -12,9 +12,13 @@ import { asrRouter } from './asr-service.js';
 import { ensureCertificates } from './cert-utils.js';
 import { getStoredPasswordHash } from './auth.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
+import { ensureRuntimeEnvironment, ensureNativePtyBinary } from './embedded-assets.js';
+
+const projectRoot = process.env.WEBTERM_ROOT || process.cwd();
+
+// Auto generate .env and dist/ static assets if missing
+ensureRuntimeEnvironment(projectRoot);
+ensureNativePtyBinary();
 
 // Load .env.local first (higher priority), then .env
 const localEnv = path.resolve(projectRoot, '.env.local');
@@ -25,7 +29,30 @@ dotenv.config({ path: path.resolve(projectRoot, '.env') });
 
 const app = express();
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+// Parse port from command-line arguments: --port <N>, -p <N>, or --port=<N>
+function parsePortFromArgs(): number | null {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--port' || arg === '-p') {
+      const next = args[i + 1];
+      if (next) {
+        const p = parseInt(next, 10);
+        if (!Number.isNaN(p) && p > 0 && p < 65536) return p;
+      }
+    } else {
+      const m = arg.match(/^--port=(\d+)$/);
+      if (m) {
+        const p = parseInt(m[1], 10);
+        if (p > 0 && p < 65536) return p;
+      }
+    }
+  }
+  return null;
+}
+
+const cliPort = parsePortFromArgs();
+const PORT = cliPort ?? parseInt(process.env.PORT || '13399', 10);
 const HOST = '0.0.0.0';
 const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false';
 

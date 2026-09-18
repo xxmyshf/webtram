@@ -57,7 +57,7 @@ npm install
 ### 2. 配置文件说明 (`.env`)
 在项目根目录下配置 `.env` 文件：
 ```ini
-PORT=3000
+PORT=13399
 TERMINAL_PASSWORD=cyberpunk2026
 DEFAULT_SHELL=/bin/bash
 MAX_HISTORY_LINES=2000
@@ -70,10 +70,18 @@ SESSION_TIMEOUT_MINUTES=30
   npm run build
   npm run server
   ```
-  访问 `http://localhost:3000` 即可进入终端。默认访问密码为 `cyberpunk2026`。
+  访问 `http://localhost:13399` 即可进入终端。默认访问密码为 `cyberpunk2026`。
+
+  > 💡 **自定义端口**：默认端口为 `13399`，可通过命令行参数 `--port <端口>` 或 `-p <端口>` 修改：
+  > ```bash
+  > npx tsx server/index.ts --port 8080
+  > npx tsx server/index.ts -p 9000
+  > node webterm.cjs --port 8080
+  > ```
+  > 也可通过环境变量 `PORT=8080` 或 `.env` 配置文件指定。
 
 - **开发热重载模式**：
-  - 后端服务：`npm run server` (端口 3000)
+  - 后端服务：`npm run server` (端口 13399)
   - 前端开发：`npm run dev` (端口 5173，内置 WebSocket 与 API 代理)
 
 ### 4. 运行全自动化测试套件

@@ -3,10 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const envLocalPath = path.resolve(__dirname, '../.env.local');
-const envPath = path.resolve(__dirname, '../.env');
+function getEnvPaths() {
+  const root = process.env.WEBTERM_ROOT || process.cwd();
+  return {
+    envLocalPath: path.resolve(root, '.env.local'),
+    envPath: path.resolve(root, '.env')
+  };
+}
 
 export function sha256(str: string): string {
   return crypto.createHash('sha256').update(str).digest('hex').toLowerCase();
@@ -56,6 +59,7 @@ export function updatePassword(newPassword: string): void {
   delete process.env.TERMINAL_PASSWORD;
 
   // Prioritize .env.local if it exists, otherwise fall back to .env
+  const { envLocalPath, envPath } = getEnvPaths();
   const targetPath = fs.existsSync(envLocalPath) ? envLocalPath : envPath;
 
   try {

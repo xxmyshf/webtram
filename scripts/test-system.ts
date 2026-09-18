@@ -6,8 +6,8 @@ async function wait(ms: number) {
 
 async function runTests() {
   console.log('🧪 Starting Cyberpunk WebTerm automated test suite...\n');
-  const baseUrl = 'http://127.0.0.1:3000';
-  const wsUrl = 'ws://127.0.0.1:3000/ws';
+  const baseUrl = 'http://127.0.0.1:13399';
+  const wsUrl = 'ws://127.0.0.1:13399/ws';
 
   // 1. Health & Status
   console.log('1. Checking /api/status...');

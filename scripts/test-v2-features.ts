@@ -13,8 +13,8 @@ function sha256(str: string): string {
 
 async function testFeatures() {
   console.log('🧪 Testing WebTerm V2 upgraded features...\n');
-  const baseUrl = 'https://127.0.0.1:3000';
-  const wsUrl = 'wss://127.0.0.1:3000/ws';
+  const baseUrl = 'https://127.0.0.1:13399';
+  const wsUrl = 'wss://127.0.0.1:13399/ws';
   const currentHash = process.env.TERMINAL_PASSWORD_HASH
     || (process.env.TERMINAL_PASSWORD ? sha256(process.env.TERMINAL_PASSWORD) : '0964b6086fe38dbe6162a3953124327d9d52ce4816952c620694126fed33aaa6');
 

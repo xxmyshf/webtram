@@ -34,7 +34,12 @@ class WebTermApp {
   }
 
   public init(): void {
-    const appEl = document.getElementById('app')!;
+    let appEl = document.getElementById('app');
+    if (!appEl) {
+      appEl = document.createElement('div');
+      appEl.id = 'app';
+      document.body.appendChild(appEl);
+    }
 
     // 1. Speech Manager
     this.speechManager = new SpeechManager();
@@ -316,7 +321,13 @@ class WebTermApp {
 }
 
 // Bootstrap
-window.addEventListener('DOMContentLoaded', () => {
+function startWebTerm(): void {
   const app = new WebTermApp();
   app.init();
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', startWebTerm);
+} else {
+  startWebTerm();
+}

@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "cert": "tsx server/generate-cert.ts",
     "server": "tsx server/index.ts",
-    "start": "tsx server/index.ts"
+    "start": "tsx server/index.ts",
+    "bundle": "tsx scripts/bundle-all-in-one.ts",
+    "start:bundle": "node webterm.cjs"
   },
   "keywords": [
     "xterm",
