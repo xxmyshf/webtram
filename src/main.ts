@@ -25,11 +25,24 @@ class WebTermApp {
   private cachedPassword = '';
   private isConnecting = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
   private pingInterval: NodeJS.Timeout | null = null;
   private pingStartTs = 0;
+  private startupCmd = '';
+  private isRestore = false;
+  private startupCmdExecuted = false;
 
   constructor() {
-    this.sessionId = localStorage.getItem('webterm_session_id');
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSessionId = urlParams.get('sessionId') || urlParams.get('session');
+    this.startupCmd = urlParams.get('cmd') || urlParams.get('run') || '';
+    this.isRestore = urlParams.get('restore') === 'true' || urlParams.get('restore') === '1';
+
+    if (urlSessionId) {
+      this.sessionId = urlSessionId;
+    } else {
+      this.sessionId = localStorage.getItem('webterm_session_id');
+    }
     this.cachedPassword = localStorage.getItem('webterm_pwd') || sessionStorage.getItem('webterm_pwd') || '';
   }
 
@@ -108,11 +121,46 @@ class WebTermApp {
 
     this.asrConfigModal = new ASRConfigModal(this.speechManager);
 
-    // Initial check
-    if (!this.cachedPassword) {
-      this.authModal.show();
+    // Setup postMessage communication with parent host (WebTerm Manager)
+    window.addEventListener('message', (event) => {
+      if (!event.data || typeof event.data !== 'object') return;
+      const { type, cmd, sessionId } = event.data;
+      if (type === 'RUN_COMMAND' && typeof cmd === 'string') {
+        const toSend = cmd.endsWith('\n') || cmd.endsWith('\r') ? cmd : cmd + '\r';
+        this.sendInput(toSend);
+      } else if (type === 'FOCUS') {
+        this.terminalManager.focus();
+      } else if (type === 'FIT') {
+        this.terminalManager.fit();
+      }
+    });
+
+    const config = getTerminalConfig();
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramPwd = urlParams.get('pwd') || urlParams.get('password') || config.defaultPassword;
+
+    const proceedAuth = () => {
+      if (!this.cachedPassword) {
+        this.authModal.show();
+      } else {
+        this.connectWebSocket();
+      }
+    };
+
+    if (paramPwd) {
+      if (paramPwd.length === 64 && /^[0-9a-fA-F]+$/.test(paramPwd)) {
+        this.cachedPassword = paramPwd.toLowerCase();
+        localStorage.setItem('webterm_pwd', this.cachedPassword);
+        proceedAuth();
+      } else {
+        hashPassword(paramPwd).then((hash) => {
+          this.cachedPassword = hash;
+          localStorage.setItem('webterm_pwd', hash);
+          proceedAuth();
+        }).catch(() => proceedAuth());
+      }
     } else {
-      this.connectWebSocket();
+      proceedAuth();
     }
   }
 
@@ -215,13 +263,25 @@ class WebTermApp {
       }));
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       try {
-        const msg = JSON.parse(event.data);
+        let rawData: string;
+        if (typeof event.data === 'string') {
+          rawData = event.data;
+        } else if (event.data instanceof Blob) {
+          rawData = await event.data.text();
+        } else if (event.data instanceof ArrayBuffer) {
+          rawData = new TextDecoder().decode(event.data);
+        } else {
+          rawData = String(event.data);
+        }
+
+        const msg = JSON.parse(rawData);
 
         switch (msg.type) {
           case 'auth_ok': {
             this.isConnecting = false;
+            this.reconnectAttempts = 0;
             this.sessionId = msg.sessionId;
             localStorage.setItem('webterm_session_id', msg.sessionId);
             this.statusBar.setSessionId(msg.sessionId);
@@ -234,12 +294,51 @@ class WebTermApp {
             }
             this.startPingInterval();
             onAuthResult?.(true);
+
+            // Notify parent WebTerm Manager
+            try {
+              window.parent.postMessage({
+                type: 'WEBTERM_READY',
+                sessionId: msg.sessionId,
+                isRestore: this.isRestore
+              }, '*');
+            } catch {}
+
+            // Execute startup command if this is a fresh conversation (not a restored conversation)
+            if (this.startupCmd && !this.isRestore && !this.startupCmdExecuted) {
+              this.startupCmdExecuted = true;
+              setTimeout(() => {
+                const cmdToSend = this.startupCmd.endsWith('\n') || this.startupCmd.endsWith('\r')
+                  ? this.startupCmd
+                  : this.startupCmd + '\r';
+                this.sendInput(cmdToSend);
+                try {
+                  window.parent.postMessage({
+                    type: 'WEBTERM_STARTUP_EXECUTED',
+                    sessionId: msg.sessionId
+                  }, '*');
+                } catch {}
+              }, 350);
+            }
+            break;
+          }
+
+          case 'error': {
+            this.isConnecting = false;
+            if (this.reconnectTimer) {
+              clearTimeout(this.reconnectTimer);
+              this.reconnectTimer = null;
+            }
+            this.statusBar.setConnectionState('offline');
+            const errDetail = msg.error || '目标服务连接异常';
+            this.terminalManager.write(`\r\n\x1b[31m[Connection Error] ${errDetail}\x1b[0m\r\n`);
             break;
           }
 
           case 'auth_fail': {
             this.isConnecting = false;
             this.cachedPassword = '';
+            this.reconnectAttempts = 0;
             localStorage.removeItem('webterm_pwd');
             sessionStorage.removeItem('webterm_pwd');
             if (this.reconnectTimer) {
@@ -247,6 +346,7 @@ class WebTermApp {
               this.reconnectTimer = null;
             }
             this.statusBar.setConnectionState('offline');
+            this.terminalManager.write(`\r\n\x1b[31m[Auth Failed] ${msg.error || '节点访问密码不匹配'}\x1b[0m\r\n`);
 
             if (onAuthResult) {
               onAuthResult(false);
@@ -329,6 +429,12 @@ class WebTermApp {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer || !this.cachedPassword) return;
+    if (this.reconnectAttempts >= 5) {
+      this.statusBar.setConnectionState('offline');
+      this.terminalManager.write('\r\n\x1b[33m[WebTerm] 连续重连失败达到上限 (5次)，已停止重试。请检查目标节点服务状态或手动点击右上角重连。\x1b[0m\r\n');
+      return;
+    }
+    this.reconnectAttempts++;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connectWebSocket();
@@ -336,6 +442,7 @@ class WebTermApp {
   }
 
   private reconnect(): void {
+    this.reconnectAttempts = 0;
     if (!this.cachedPassword) {
       this.authModal.show();
       return;

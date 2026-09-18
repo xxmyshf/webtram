@@ -59,6 +59,12 @@ export class AuthModal {
     this.errorMsgEl = this.container.querySelector('.auth-error-msg')!;
     this.submitBtn = this.container.querySelector('.auth-submit-btn')!;
 
+    // Input element focus on click
+    this.inputEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.inputEl.focus();
+    });
+
     // Toggle password eye
     const eyeBtn = this.container.querySelector('.btn-toggle-eye')!;
     eyeBtn.addEventListener('click', () => {
