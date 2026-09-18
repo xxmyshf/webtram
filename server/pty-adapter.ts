@@ -1,40 +1,22 @@
 import { ensureNativePtyBinary } from './embedded-assets.js';
-import { createRequire } from 'module';
-import path from 'path';
+import type * as nodePtyType from 'node-pty';
 
-function getReq(): NodeRequire {
-  if (typeof require !== 'undefined') {
-    return require;
-  }
-  // ESM 环境下使用 createRequire 解析
-  return createRequire(path.resolve(process.cwd(), 'package.json'));
-}
+let ptyInstance: typeof nodePtyType | null = null;
 
-let ptyInstance: any = null;
-
-export function getPty(): any {
+export function getPty(): typeof nodePtyType {
   if (ptyInstance) return ptyInstance;
 
-  const req = getReq();
-
-  // 1. 优先尝试直接 require 系统/当前目录的 node-pty
-  try {
-    ptyInstance = req('node-pty');
-    return ptyInstance;
-  } catch (err) {
-    // 降级使用内嵌原生二进制
-  }
-
-  // 2. 释放内嵌原生模块并再次加载
+  // 1. 确保释放内嵌的原生 pty.node 二进制到 build/Release/pty.node
   ensureNativePtyBinary();
 
+  // 2. 加载 node-pty (esbuild 会将 node-pty 的 JS 代码完整打包进 bundle)
   try {
-    ptyInstance = req('node-pty');
-    return ptyInstance;
+    ptyInstance = require('node-pty');
+    return ptyInstance!;
   } catch (err) {
     console.error('[PTY] 载入 node-pty 失败:', err);
     throw err;
   }
 }
 
-export type IPty = any;
+export type IPty = nodePtyType.IPty;

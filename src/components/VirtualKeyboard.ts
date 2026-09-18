@@ -567,7 +567,7 @@ export class VirtualKeyboard {
     return shiftBtn;
   }
 
-  private createBackspaceButton(isFaint = false): HTMLElement {
+  private createBackspaceButton(isFaint = false): HTMLButtonElement {
     const bkspBtn = document.createElement('button');
     bkspBtn.type = 'button';
     bkspBtn.className = 'keycap key-fn key-backspace';

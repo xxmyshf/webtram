@@ -15229,11 +15229,11 @@ var require_mime_types = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path6) {
-      if (!path6 || typeof path6 !== "string") {
+    function lookup(path5) {
+      if (!path5 || typeof path5 !== "string") {
         return false;
       }
-      var extension3 = extname("x." + path6).toLowerCase().slice(1);
+      var extension3 = extname("x." + path5).toLowerCase().slice(1);
       if (!extension3) {
         return false;
       }
@@ -18920,13 +18920,13 @@ var require_view = __commonJS({
   "node_modules/express/lib/view.js"(exports2, module2) {
     "use strict";
     var debug = require_src()("express:view");
-    var path6 = require("node:path");
+    var path5 = require("node:path");
     var fs5 = require("node:fs");
-    var dirname = path6.dirname;
-    var basename = path6.basename;
-    var extname = path6.extname;
-    var join = path6.join;
-    var resolve = path6.resolve;
+    var dirname = path5.dirname;
+    var basename = path5.basename;
+    var extname = path5.extname;
+    var join = path5.join;
+    var resolve = path5.resolve;
     module2.exports = View;
     function View(name, options) {
       var opts = options || {};
@@ -18955,17 +18955,17 @@ var require_view = __commonJS({
       this.path = this.lookup(fileName);
     }
     View.prototype.lookup = function lookup(name) {
-      var path7;
+      var path6;
       var roots = [].concat(this.root);
       debug('lookup "%s"', name);
-      for (var i = 0; i < roots.length && !path7; i++) {
+      for (var i = 0; i < roots.length && !path6; i++) {
         var root = roots[i];
         var loc = resolve(root, name);
         var dir = dirname(loc);
         var file = basename(loc);
-        path7 = this.resolve(dir, file);
+        path6 = this.resolve(dir, file);
       }
-      return path7;
+      return path6;
     };
     View.prototype.render = function render(options, callback) {
       var sync = true;
@@ -18987,21 +18987,21 @@ var require_view = __commonJS({
     };
     View.prototype.resolve = function resolve2(dir, file) {
       var ext = this.ext;
-      var path7 = join(dir, file);
-      var stat = tryStat(path7);
+      var path6 = join(dir, file);
+      var stat = tryStat(path6);
       if (stat && stat.isFile()) {
-        return path7;
+        return path6;
       }
-      path7 = join(dir, basename(file, ext), "index" + ext);
-      stat = tryStat(path7);
+      path6 = join(dir, basename(file, ext), "index" + ext);
+      stat = tryStat(path6);
       if (stat && stat.isFile()) {
-        return path7;
+        return path6;
       }
     };
-    function tryStat(path7) {
-      debug('stat "%s"', path7);
+    function tryStat(path6) {
+      debug('stat "%s"', path6);
       try {
-        return fs5.statSync(path7);
+        return fs5.statSync(path6);
       } catch (e) {
         return void 0;
       }
@@ -20257,15 +20257,15 @@ var require_dist3 = __commonJS({
       let index = 0;
       function consumeUntil(end) {
         const output = [];
-        let path6 = "";
+        let path5 = "";
         function writePath() {
-          if (!path6)
+          if (!path5)
             return;
           output.push({
             type: "text",
-            value: encodePath(path6)
+            value: encodePath(path5)
           });
-          path6 = "";
+          path5 = "";
         }
         while (index < chars.length) {
           const value = chars[index++];
@@ -20277,7 +20277,7 @@ var require_dist3 = __commonJS({
             if (index === chars.length) {
               throw new PathError(`Unexpected end after \\ at index ${index}`, str);
             }
-            path6 += chars[index++];
+            path5 += chars[index++];
             continue;
           }
           if (value === ":" || value === "*") {
@@ -20321,7 +20321,7 @@ var require_dist3 = __commonJS({
           if (value === "}" || value === "(" || value === ")" || value === "[" || value === "]" || value === "+" || value === "?" || value === "!") {
             throw new PathError(`Unexpected ${value} at index ${index - 1}`, str);
           }
-          path6 += value;
+          path5 += value;
         }
         if (end) {
           throw new PathError(`Unexpected end at index ${index}, expected ${end}`, str);
@@ -20331,17 +20331,17 @@ var require_dist3 = __commonJS({
       }
       return new TokenData(consumeUntil(""), str);
     }
-    function compile(path6, options = {}) {
+    function compile(path5, options = {}) {
       const { encode = encodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
-      const data = typeof path6 === "object" ? path6 : parse(path6, options);
+      const data = typeof path5 === "object" ? path5 : parse(path5, options);
       const fn = tokensToFunction(data.tokens, delimiter, encode);
-      return function path7(params = {}) {
+      return function path6(params = {}) {
         const missing = [];
-        const path8 = fn(params, missing);
+        const path7 = fn(params, missing);
         if (missing.length) {
           throw new TypeError(`Missing parameters: ${missing.join(", ")}`);
         }
-        return path8;
+        return path7;
       };
     }
     function tokensToFunction(tokens, delimiter, encode) {
@@ -20403,9 +20403,9 @@ var require_dist3 = __commonJS({
         return encodeValue(value);
       };
     }
-    function match(path6, options = {}) {
+    function match(path5, options = {}) {
       const { decode = decodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
-      const { regexp, keys } = pathToRegexp(path6, options);
+      const { regexp, keys } = pathToRegexp(path5, options);
       const decoders = keys.map((key) => {
         if (decode === false)
           return NOOP_VALUE;
@@ -20417,7 +20417,7 @@ var require_dist3 = __commonJS({
         const m = regexp.exec(input);
         if (!m)
           return false;
-        const path7 = m[0];
+        const path6 = m[0];
         const params = /* @__PURE__ */ Object.create(null);
         for (let i = 1; i < m.length; i++) {
           if (m[i] === void 0)
@@ -20426,21 +20426,21 @@ var require_dist3 = __commonJS({
           const decoder = decoders[i - 1];
           params[key.name] = decoder(m[i]);
         }
-        return { path: path7, params };
+        return { path: path6, params };
       };
     }
-    function pathToRegexp(path6, options = {}) {
+    function pathToRegexp(path5, options = {}) {
       const { delimiter = DEFAULT_DELIMITER, end = true, sensitive = false, trailing = true } = options;
       const keys = [];
       let source = "";
       let combinations = 0;
-      function process2(path7) {
-        if (Array.isArray(path7)) {
-          for (const p of path7)
+      function process2(path6) {
+        if (Array.isArray(path6)) {
+          for (const p of path6)
             process2(p);
           return;
         }
-        const data = typeof path7 === "object" ? path7 : parse(path7, options);
+        const data = typeof path6 === "object" ? path6 : parse(path6, options);
         flatten(data.tokens, 0, [], (tokens) => {
           if (combinations >= 256) {
             throw new PathError("Too many path combinations", data.originalPath);
@@ -20451,7 +20451,7 @@ var require_dist3 = __commonJS({
           combinations++;
         });
       }
-      process2(path6);
+      process2(path5);
       let pattern = `^(?:${source})`;
       if (trailing)
         pattern += "(?:" + escape2(delimiter) + "$)?";
@@ -20591,18 +20591,18 @@ var require_layer = __commonJS({
     var TRAILING_SLASH_REGEXP = /\/+$/;
     var MATCHING_GROUP_REGEXP = /\((?:\?<(.*?)>)?(?!\?)/g;
     module2.exports = Layer;
-    function Layer(path6, options, fn) {
+    function Layer(path5, options, fn) {
       if (!(this instanceof Layer)) {
-        return new Layer(path6, options, fn);
+        return new Layer(path5, options, fn);
       }
-      debug("new %o", path6);
+      debug("new %o", path5);
       const opts = options || {};
       this.handle = fn;
       this.keys = [];
       this.name = fn.name || "<anonymous>";
       this.params = void 0;
       this.path = void 0;
-      this.slash = path6 === "/" && opts.end === false;
+      this.slash = path5 === "/" && opts.end === false;
       function matcher(_path) {
         if (_path instanceof RegExp) {
           const keys = [];
@@ -20641,7 +20641,7 @@ var require_layer = __commonJS({
           decode: decodeParam
         });
       }
-      this.matchers = Array.isArray(path6) ? path6.map(matcher) : [matcher(path6)];
+      this.matchers = Array.isArray(path5) ? path5.map(matcher) : [matcher(path5)];
     }
     Layer.prototype.handleError = function handleError(error, req, res, next) {
       const fn = this.handle;
@@ -20681,9 +20681,9 @@ var require_layer = __commonJS({
         next(err);
       }
     };
-    Layer.prototype.match = function match(path6) {
+    Layer.prototype.match = function match(path5) {
       let match2;
-      if (path6 != null) {
+      if (path5 != null) {
         if (this.slash) {
           this.params = {};
           this.path = "";
@@ -20691,7 +20691,7 @@ var require_layer = __commonJS({
         }
         let i = 0;
         while (!match2 && i < this.matchers.length) {
-          match2 = this.matchers[i](path6);
+          match2 = this.matchers[i](path5);
           i++;
         }
       }
@@ -20719,13 +20719,13 @@ var require_layer = __commonJS({
         throw err;
       }
     }
-    function loosen(path6) {
-      if (path6 instanceof RegExp || path6 === "/") {
-        return path6;
+    function loosen(path5) {
+      if (path5 instanceof RegExp || path5 === "/") {
+        return path5;
       }
-      return Array.isArray(path6) ? path6.map(function(p) {
+      return Array.isArray(path5) ? path5.map(function(p) {
         return loosen(p);
-      }) : String(path6).replace(TRAILING_SLASH_REGEXP, "");
+      }) : String(path5).replace(TRAILING_SLASH_REGEXP, "");
     }
   }
 });
@@ -20741,9 +20741,9 @@ var require_route = __commonJS({
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
     module2.exports = Route;
-    function Route(path6) {
-      debug("new %o", path6);
-      this.path = path6;
+    function Route(path5) {
+      debug("new %o", path5);
+      this.path = path5;
       this.stack = [];
       this.methods = /* @__PURE__ */ Object.create(null);
     }
@@ -20951,8 +20951,8 @@ var require_router = __commonJS({
         if (++sync > 100) {
           return setImmediate(next, err);
         }
-        const path6 = getPathname(req);
-        if (path6 == null) {
+        const path5 = getPathname(req);
+        if (path5 == null) {
           return done(layerError);
         }
         let layer;
@@ -20960,7 +20960,7 @@ var require_router = __commonJS({
         let route;
         while (match !== true && idx < stack.length) {
           layer = stack[idx++];
-          match = matchLayer(layer, path6);
+          match = matchLayer(layer, path5);
           route = layer.route;
           if (typeof match !== "boolean") {
             layerError = layerError || match;
@@ -20998,18 +20998,18 @@ var require_router = __commonJS({
           } else if (route) {
             layer.handleRequest(req, res, next);
           } else {
-            trimPrefix(layer, layerError, layerPath, path6);
+            trimPrefix(layer, layerError, layerPath, path5);
           }
           sync = 0;
         });
       }
-      function trimPrefix(layer, layerError, layerPath, path6) {
+      function trimPrefix(layer, layerError, layerPath, path5) {
         if (layerPath.length !== 0) {
-          if (layerPath !== path6.substring(0, layerPath.length)) {
+          if (layerPath !== path5.substring(0, layerPath.length)) {
             next(layerError);
             return;
           }
-          const c = path6[layerPath.length];
+          const c = path5[layerPath.length];
           if (c && c !== "/") {
             next(layerError);
             return;
@@ -21033,7 +21033,7 @@ var require_router = __commonJS({
     };
     Router2.prototype.use = function use(handler) {
       let offset = 0;
-      let path6 = "/";
+      let path5 = "/";
       if (typeof handler !== "function") {
         let arg = handler;
         while (Array.isArray(arg) && arg.length !== 0) {
@@ -21041,7 +21041,7 @@ var require_router = __commonJS({
         }
         if (typeof arg !== "function") {
           offset = 1;
-          path6 = handler;
+          path5 = handler;
         }
       }
       const callbacks = flatten.call(slice.call(arguments, offset), Infinity);
@@ -21053,8 +21053,8 @@ var require_router = __commonJS({
         if (typeof fn !== "function") {
           throw new TypeError("argument handler must be a function");
         }
-        debug("use %o %s", path6, fn.name || "<anonymous>");
-        const layer = new Layer(path6, {
+        debug("use %o %s", path5, fn.name || "<anonymous>");
+        const layer = new Layer(path5, {
           sensitive: this.caseSensitive,
           strict: false,
           end: false
@@ -21064,9 +21064,9 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router2.prototype.route = function route(path6) {
-      const route2 = new Route(path6);
-      const layer = new Layer(path6, {
+    Router2.prototype.route = function route(path5) {
+      const route2 = new Route(path5);
+      const layer = new Layer(path5, {
         sensitive: this.caseSensitive,
         strict: this.strict,
         end: true
@@ -21079,8 +21079,8 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router2.prototype[method] = function(path6) {
-        const route = this.route(path6);
+      Router2.prototype[method] = function(path5) {
+        const route = this.route(path5);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
       };
@@ -21109,9 +21109,9 @@ var require_router = __commonJS({
       const fqdnIndex = url.substring(0, pathLength).indexOf("://");
       return fqdnIndex !== -1 ? url.substring(0, url.indexOf("/", 3 + fqdnIndex)) : void 0;
     }
-    function matchLayer(layer, path6) {
+    function matchLayer(layer, path5) {
       try {
-        return layer.match(path6);
+        return layer.match(path5);
       } catch (err) {
         return err;
       }
@@ -21339,7 +21339,7 @@ var require_application = __commonJS({
     };
     app2.use = function use(fn) {
       var offset = 0;
-      var path6 = "/";
+      var path5 = "/";
       if (typeof fn !== "function") {
         var arg = fn;
         while (Array.isArray(arg) && arg.length !== 0) {
@@ -21347,7 +21347,7 @@ var require_application = __commonJS({
         }
         if (typeof arg !== "function") {
           offset = 1;
-          path6 = fn;
+          path5 = fn;
         }
       }
       var fns = flatten.call(slice.call(arguments, offset), Infinity);
@@ -21357,12 +21357,12 @@ var require_application = __commonJS({
       var router = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router.use(path6, fn2);
+          return router.use(path5, fn2);
         }
-        debug(".use app under %s", path6);
-        fn2.mountpath = path6;
+        debug(".use app under %s", path5);
+        fn2.mountpath = path5;
         fn2.parent = this;
-        router.use(path6, function mounted_app(req, res, next) {
+        router.use(path5, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -21374,8 +21374,8 @@ var require_application = __commonJS({
       }, this);
       return this;
     };
-    app2.route = function route(path6) {
-      return this.router.route(path6);
+    app2.route = function route(path5) {
+      return this.router.route(path5);
     };
     app2.engine = function engine(ext, fn) {
       if (typeof fn !== "function") {
@@ -21418,7 +21418,7 @@ var require_application = __commonJS({
       }
       return this;
     };
-    app2.path = function path6() {
+    app2.path = function path5() {
       return this.parent ? this.parent.path() + this.mountpath : "";
     };
     app2.enabled = function enabled(setting) {
@@ -21434,17 +21434,17 @@ var require_application = __commonJS({
       return this.set(setting, false);
     };
     methods.forEach(function(method) {
-      app2[method] = function(path6) {
+      app2[method] = function(path5) {
         if (method === "get" && arguments.length === 1) {
-          return this.set(path6);
+          return this.set(path5);
         }
-        var route = this.route(path6);
+        var route = this.route(path5);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
       };
     });
-    app2.all = function all(path6) {
-      var route = this.route(path6);
+    app2.all = function all(path5) {
+      var route = this.route(path5);
       var args = slice.call(arguments, 1);
       for (var i = 0; i < methods.length; i++) {
         route[methods[i]].apply(route, args);
@@ -22429,7 +22429,7 @@ var require_request = __commonJS({
       var subdomains2 = !isIP(hostname) ? hostname.split(".").reverse() : [hostname];
       return subdomains2.slice(offset);
     });
-    defineGetter(req, "path", function path6() {
+    defineGetter(req, "path", function path5() {
       return parse(this).pathname;
     });
     defineGetter(req, "host", function host() {
@@ -22640,8 +22640,8 @@ var require_content_disposition = __commonJS({
       this.type = type;
       this.parameters = parameters;
     }
-    function basename(path6) {
-      const normalized = path6.replaceAll("\\", "/");
+    function basename(path5) {
+      const normalized = path5.replaceAll("\\", "/");
       let end = normalized.length;
       while (end > 0 && normalized[end - 1] === "/") {
         end--;
@@ -22887,27 +22887,27 @@ var require_send = __commonJS({
     var ms = require_ms();
     var onFinished = require_on_finished();
     var parseRange = require_range_parser();
-    var path6 = require("path");
+    var path5 = require("path");
     var statuses = require_statuses();
     var Stream = require("stream");
     var util = require("util");
-    var extname = path6.extname;
-    var join = path6.join;
-    var normalize = path6.normalize;
-    var resolve = path6.resolve;
-    var sep = path6.sep;
+    var extname = path5.extname;
+    var join = path5.join;
+    var normalize = path5.normalize;
+    var resolve = path5.resolve;
+    var sep = path5.sep;
     var BYTES_RANGE_REGEXP = /^ *bytes=/;
     var MAX_MAXAGE = 60 * 60 * 24 * 365 * 1e3;
     var UP_PATH_REGEXP = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
     module2.exports = send;
-    function send(req, path7, options) {
-      return new SendStream(req, path7, options);
+    function send(req, path6, options) {
+      return new SendStream(req, path6, options);
     }
-    function SendStream(req, path7, options) {
+    function SendStream(req, path6, options) {
       Stream.call(this);
       var opts = options || {};
       this.options = opts;
-      this.path = path7;
+      this.path = path6;
       this.req = req;
       this._acceptRanges = opts.acceptRanges !== void 0 ? Boolean(opts.acceptRanges) : true;
       this._cacheControl = opts.cacheControl !== void 0 ? Boolean(opts.cacheControl) : true;
@@ -23021,10 +23021,10 @@ var require_send = __commonJS({
       var lastModified = this.res.getHeader("Last-Modified");
       return parseHttpDate(lastModified) <= parseHttpDate(ifRange);
     };
-    SendStream.prototype.redirect = function redirect(path7) {
+    SendStream.prototype.redirect = function redirect(path6) {
       var res = this.res;
       if (hasListeners(this, "directory")) {
-        this.emit("directory", res, path7);
+        this.emit("directory", res, path6);
         return;
       }
       if (this.hasTrailingSlash()) {
@@ -23044,38 +23044,38 @@ var require_send = __commonJS({
     SendStream.prototype.pipe = function pipe(res) {
       var root = this._root;
       this.res = res;
-      var path7 = decode(this.path);
-      if (path7 === -1) {
+      var path6 = decode(this.path);
+      if (path6 === -1) {
         this.error(400);
         return res;
       }
-      if (~path7.indexOf("\0")) {
+      if (~path6.indexOf("\0")) {
         this.error(400);
         return res;
       }
       var parts;
       if (root !== null) {
-        if (path7) {
-          path7 = normalize("." + sep + path7);
+        if (path6) {
+          path6 = normalize("." + sep + path6);
         }
-        if (UP_PATH_REGEXP.test(path7)) {
-          debug('malicious path "%s"', path7);
+        if (UP_PATH_REGEXP.test(path6)) {
+          debug('malicious path "%s"', path6);
           this.error(403);
           return res;
         }
-        parts = path7.split(sep);
-        path7 = normalize(join(root, path7));
+        parts = path6.split(sep);
+        path6 = normalize(join(root, path6));
       } else {
-        if (UP_PATH_REGEXP.test(path7)) {
-          debug('malicious path "%s"', path7);
+        if (UP_PATH_REGEXP.test(path6)) {
+          debug('malicious path "%s"', path6);
           this.error(403);
           return res;
         }
-        parts = normalize(path7).split(sep);
-        path7 = resolve(path7);
+        parts = normalize(path6).split(sep);
+        path6 = resolve(path6);
       }
       if (containsDotFile(parts)) {
-        debug('%s dotfile "%s"', this._dotfiles, path7);
+        debug('%s dotfile "%s"', this._dotfiles, path6);
         switch (this._dotfiles) {
           case "allow":
             break;
@@ -23089,13 +23089,13 @@ var require_send = __commonJS({
         }
       }
       if (this._index.length && this.hasTrailingSlash()) {
-        this.sendIndex(path7);
+        this.sendIndex(path6);
         return res;
       }
-      this.sendFile(path7);
+      this.sendFile(path6);
       return res;
     };
-    SendStream.prototype.send = function send2(path7, stat) {
+    SendStream.prototype.send = function send2(path6, stat) {
       var len = stat.size;
       var options = this.options;
       var opts = {};
@@ -23107,9 +23107,9 @@ var require_send = __commonJS({
         this.headersAlreadySent();
         return;
       }
-      debug('pipe "%s"', path7);
-      this.setHeader(path7, stat);
-      this.type(path7);
+      debug('pipe "%s"', path6);
+      this.setHeader(path6, stat);
+      this.type(path6);
       if (this.isConditionalGET()) {
         if (this.isPreconditionFailure()) {
           this.error(412);
@@ -23158,28 +23158,28 @@ var require_send = __commonJS({
         res.end();
         return;
       }
-      this.stream(path7, opts);
+      this.stream(path6, opts);
     };
-    SendStream.prototype.sendFile = function sendFile(path7) {
+    SendStream.prototype.sendFile = function sendFile(path6) {
       var i = 0;
       var self = this;
-      debug('stat "%s"', path7);
-      fs5.stat(path7, function onstat(err, stat) {
-        var pathEndsWithSep = path7[path7.length - 1] === sep;
-        if (err && err.code === "ENOENT" && !extname(path7) && !pathEndsWithSep) {
+      debug('stat "%s"', path6);
+      fs5.stat(path6, function onstat(err, stat) {
+        var pathEndsWithSep = path6[path6.length - 1] === sep;
+        if (err && err.code === "ENOENT" && !extname(path6) && !pathEndsWithSep) {
           return next(err);
         }
         if (err) return self.onStatError(err);
-        if (stat.isDirectory()) return self.redirect(path7);
+        if (stat.isDirectory()) return self.redirect(path6);
         if (pathEndsWithSep) return self.error(404);
-        self.emit("file", path7, stat);
-        self.send(path7, stat);
+        self.emit("file", path6, stat);
+        self.send(path6, stat);
       });
       function next(err) {
         if (self._extensions.length <= i) {
           return err ? self.onStatError(err) : self.error(404);
         }
-        var p = path7 + "." + self._extensions[i++];
+        var p = path6 + "." + self._extensions[i++];
         debug('stat "%s"', p);
         fs5.stat(p, function(err2, stat) {
           if (err2) return next(err2);
@@ -23189,7 +23189,7 @@ var require_send = __commonJS({
         });
       }
     };
-    SendStream.prototype.sendIndex = function sendIndex(path7) {
+    SendStream.prototype.sendIndex = function sendIndex(path6) {
       var i = -1;
       var self = this;
       function next(err) {
@@ -23197,7 +23197,7 @@ var require_send = __commonJS({
           if (err) return self.onStatError(err);
           return self.error(404);
         }
-        var p = join(path7, self._index[i]);
+        var p = join(path6, self._index[i]);
         debug('stat "%s"', p);
         fs5.stat(p, function(err2, stat) {
           if (err2) return next(err2);
@@ -23208,10 +23208,10 @@ var require_send = __commonJS({
       }
       next();
     };
-    SendStream.prototype.stream = function stream(path7, options) {
+    SendStream.prototype.stream = function stream(path6, options) {
       var self = this;
       var res = this.res;
-      var stream2 = fs5.createReadStream(path7, options);
+      var stream2 = fs5.createReadStream(path6, options);
       this.emit("stream", stream2);
       stream2.pipe(res);
       function cleanup() {
@@ -23226,17 +23226,17 @@ var require_send = __commonJS({
         self.emit("end");
       });
     };
-    SendStream.prototype.type = function type(path7) {
+    SendStream.prototype.type = function type(path6) {
       var res = this.res;
       if (res.getHeader("Content-Type")) return;
-      var ext = extname(path7);
+      var ext = extname(path6);
       var type2 = mime.contentType(ext) || "application/octet-stream";
       debug("content-type %s", type2);
       res.setHeader("Content-Type", type2);
     };
-    SendStream.prototype.setHeader = function setHeader(path7, stat) {
+    SendStream.prototype.setHeader = function setHeader(path6, stat) {
       var res = this.res;
-      this.emit("headers", res, path7, stat);
+      this.emit("headers", res, path6, stat);
       if (this._acceptRanges && !res.getHeader("Accept-Ranges")) {
         debug("accept ranges");
         res.setHeader("Accept-Ranges", "bytes");
@@ -23294,9 +23294,9 @@ var require_send = __commonJS({
       }
       return err instanceof Error ? createError(status, err, { expose: false }) : createError(status, err);
     }
-    function decode(path7) {
+    function decode(path6) {
       try {
-        return decodeURIComponent(path7);
+        return decodeURIComponent(path6);
       } catch (err) {
         return -1;
       }
@@ -23440,7 +23440,7 @@ var require_response = __commonJS({
     var http2 = require("node:http");
     var onFinished = require_on_finished();
     var mime = require_mime_types();
-    var path6 = require("node:path");
+    var path5 = require("node:path");
     var pathIsAbsolute = require("node:path").isAbsolute;
     var statuses = require_statuses();
     var sign = require_cookie_signature().sign;
@@ -23449,8 +23449,8 @@ var require_response = __commonJS({
     var setCharset = require_utils3().setCharset;
     var cookie = require_cookie();
     var send = require_send();
-    var extname = path6.extname;
-    var resolve = path6.resolve;
+    var extname = path5.extname;
+    var resolve = path5.resolve;
     var vary = require_vary();
     var { Buffer: Buffer2 } = require("node:buffer");
     var res = Object.create(http2.ServerResponse.prototype);
@@ -23596,26 +23596,26 @@ var require_response = __commonJS({
       this.type("txt");
       return this.send(body);
     };
-    res.sendFile = function sendFile(path7, options, callback) {
+    res.sendFile = function sendFile(path6, options, callback) {
       var done = callback;
       var req = this.req;
       var res2 = this;
       var next = req.next;
       var opts = options || {};
-      if (!path7) {
+      if (!path6) {
         throw new TypeError("path argument is required to res.sendFile");
       }
-      if (typeof path7 !== "string") {
+      if (typeof path6 !== "string") {
         throw new TypeError("path must be a string to res.sendFile");
       }
       if (typeof options === "function") {
         done = options;
         opts = {};
       }
-      if (!opts.root && !pathIsAbsolute(path7)) {
+      if (!opts.root && !pathIsAbsolute(path6)) {
         throw new TypeError("path must be absolute or specify root to res.sendFile");
       }
-      var pathname = encodeURI(path7);
+      var pathname = encodeURI(path6);
       opts.etag = this.app.enabled("etag");
       var file = send(req, pathname, opts);
       sendfile(res2, file, opts, function(err) {
@@ -23626,7 +23626,7 @@ var require_response = __commonJS({
         }
       });
     };
-    res.download = function download(path7, filename, options, callback) {
+    res.download = function download(path6, filename, options, callback) {
       var done = callback;
       var name = filename;
       var opts = options || null;
@@ -23643,7 +23643,7 @@ var require_response = __commonJS({
         opts = filename;
       }
       var headers = {
-        "Content-Disposition": contentDisposition(name || path7)
+        "Content-Disposition": contentDisposition(name || path6)
       };
       if (opts && opts.headers) {
         var keys = Object.keys(opts.headers);
@@ -23656,7 +23656,7 @@ var require_response = __commonJS({
       }
       opts = Object.create(opts);
       opts.headers = headers;
-      var fullPath = !opts.root ? resolve(path7) : path7;
+      var fullPath = !opts.root ? resolve(path6) : path6;
       return this.sendFile(fullPath, opts, done);
     };
     res.contentType = res.type = function contentType(type) {
@@ -23939,11 +23939,11 @@ var require_serve_static = __commonJS({
         }
         var forwardError = !fallthrough;
         var originalUrl = parseUrl.original(req);
-        var path6 = parseUrl(req).pathname;
-        if (path6 === "/" && originalUrl.pathname.substr(-1) !== "/") {
-          path6 = "";
+        var path5 = parseUrl(req).pathname;
+        if (path5 === "/" && originalUrl.pathname.substr(-1) !== "/") {
+          path5 = "";
         }
-        var stream = send(req, path6, opts);
+        var stream = send(req, path5, opts);
         stream.on("directory", onDirectory);
         if (setHeaders) {
           stream.on("headers", setHeaders);
@@ -24332,7 +24332,7 @@ var require_lib3 = __commonJS({
 var require_main = __commonJS({
   "node_modules/dotenv/lib/main.js"(exports2, module2) {
     var fs5 = require("fs");
-    var path6 = require("path");
+    var path5 = require("path");
     var os2 = require("os");
     var crypto2 = require("crypto");
     var TIPS = [
@@ -24471,7 +24471,7 @@ var require_main = __commonJS({
           possibleVaultPath = options.path.endsWith(".vault") ? options.path : `${options.path}.vault`;
         }
       } else {
-        possibleVaultPath = path6.resolve(process.cwd(), ".env.vault");
+        possibleVaultPath = path5.resolve(process.cwd(), ".env.vault");
       }
       if (fs5.existsSync(possibleVaultPath)) {
         return possibleVaultPath;
@@ -24479,7 +24479,7 @@ var require_main = __commonJS({
       return null;
     }
     function _resolveHome(envPath) {
-      return envPath[0] === "~" ? path6.join(os2.homedir(), envPath.slice(1)) : envPath;
+      return envPath[0] === "~" ? path5.join(os2.homedir(), envPath.slice(1)) : envPath;
     }
     function _configVault(options) {
       const debug = parseBoolean(process.env.DOTENV_CONFIG_DEBUG || options && options.debug);
@@ -24496,7 +24496,7 @@ var require_main = __commonJS({
       return { parsed };
     }
     function configDotenv(options) {
-      const dotenvPath = path6.resolve(process.cwd(), ".env");
+      const dotenvPath = path5.resolve(process.cwd(), ".env");
       let encoding = "utf8";
       let processEnv = process.env;
       if (options && options.processEnv != null) {
@@ -24524,13 +24524,13 @@ var require_main = __commonJS({
       }
       let lastError;
       const parsedAll = {};
-      for (const path7 of optionPaths) {
+      for (const path6 of optionPaths) {
         try {
-          const parsed = DotenvModule.parse(fs5.readFileSync(path7, { encoding }));
+          const parsed = DotenvModule.parse(fs5.readFileSync(path6, { encoding }));
           DotenvModule.populate(parsedAll, parsed, options);
         } catch (e) {
           if (debug) {
-            _debug(`failed to load ${path7} ${e.message}`);
+            _debug(`failed to load ${path6} ${e.message}`);
           }
           lastError = e;
         }
@@ -24543,7 +24543,7 @@ var require_main = __commonJS({
         const shortPaths = [];
         for (const filePath of optionPaths) {
           try {
-            const relative = path6.relative(process.cwd(), filePath);
+            const relative = path5.relative(process.cwd(), filePath);
             shortPaths.push(relative);
           } catch (e) {
             if (debug) {
@@ -24644,6 +24644,1309 @@ var require_main = __commonJS({
     module2.exports.parse = DotenvModule.parse;
     module2.exports.populate = DotenvModule.populate;
     module2.exports = DotenvModule;
+  }
+});
+
+// node_modules/node-pty/lib/utils.js
+var require_utils4 = __commonJS({
+  "node_modules/node-pty/lib/utils.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.loadNativeModule = exports2.assign = void 0;
+    function assign(target) {
+      var sources = [];
+      for (var _i = 1; _i < arguments.length; _i++) {
+        sources[_i - 1] = arguments[_i];
+      }
+      sources.forEach(function(source) {
+        return Object.keys(source).forEach(function(key) {
+          return target[key] = source[key];
+        });
+      });
+      return target;
+    }
+    exports2.assign = assign;
+    function loadNativeModule(name) {
+      var dirs = ["build/Release", "build/Debug", "prebuilds/" + process.platform + "-" + process.arch];
+      var relative = ["..", "."];
+      var lastError;
+      for (var _i = 0, dirs_1 = dirs; _i < dirs_1.length; _i++) {
+        var d = dirs_1[_i];
+        for (var _a = 0, relative_1 = relative; _a < relative_1.length; _a++) {
+          var r = relative_1[_a];
+          var dir = r + "/" + d + "/";
+          try {
+            return { dir, module: require(dir + "/" + name + ".node") };
+          } catch (e) {
+            lastError = e;
+          }
+        }
+      }
+      throw new Error("Failed to load native module: " + name + ".node, checked: " + dirs.join(", ") + ": " + lastError);
+    }
+    exports2.loadNativeModule = loadNativeModule;
+  }
+});
+
+// node_modules/node-pty/lib/eventEmitter2.js
+var require_eventEmitter2 = __commonJS({
+  "node_modules/node-pty/lib/eventEmitter2.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.EventEmitter2 = void 0;
+    var EventEmitter2 = (
+      /** @class */
+      (function() {
+        function EventEmitter22() {
+          this._listeners = [];
+        }
+        Object.defineProperty(EventEmitter22.prototype, "event", {
+          get: function() {
+            var _this = this;
+            if (!this._event) {
+              this._event = function(listener) {
+                _this._listeners.push(listener);
+                var disposable = {
+                  dispose: function() {
+                    for (var i = 0; i < _this._listeners.length; i++) {
+                      if (_this._listeners[i] === listener) {
+                        _this._listeners.splice(i, 1);
+                        return;
+                      }
+                    }
+                  }
+                };
+                return disposable;
+              };
+            }
+            return this._event;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        EventEmitter22.prototype.fire = function(data) {
+          var queue = [];
+          for (var i = 0; i < this._listeners.length; i++) {
+            queue.push(this._listeners[i]);
+          }
+          for (var i = 0; i < queue.length; i++) {
+            queue[i].call(void 0, data);
+          }
+        };
+        return EventEmitter22;
+      })()
+    );
+    exports2.EventEmitter2 = EventEmitter2;
+  }
+});
+
+// node_modules/node-pty/lib/terminal.js
+var require_terminal = __commonJS({
+  "node_modules/node-pty/lib/terminal.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.Terminal = exports2.DEFAULT_ROWS = exports2.DEFAULT_COLS = void 0;
+    var events_1 = require("events");
+    var eventEmitter2_1 = require_eventEmitter2();
+    exports2.DEFAULT_COLS = 80;
+    exports2.DEFAULT_ROWS = 24;
+    var FLOW_CONTROL_PAUSE = "";
+    var FLOW_CONTROL_RESUME = "";
+    var Terminal = (
+      /** @class */
+      (function() {
+        function Terminal2(opt) {
+          this._pid = 0;
+          this._fd = 0;
+          this._cols = 0;
+          this._rows = 0;
+          this._readable = false;
+          this._writable = false;
+          this._onData = new eventEmitter2_1.EventEmitter2();
+          this._onExit = new eventEmitter2_1.EventEmitter2();
+          this._internalee = new events_1.EventEmitter();
+          this.handleFlowControl = !!(opt === null || opt === void 0 ? void 0 : opt.handleFlowControl);
+          this._flowControlPause = (opt === null || opt === void 0 ? void 0 : opt.flowControlPause) || FLOW_CONTROL_PAUSE;
+          this._flowControlResume = (opt === null || opt === void 0 ? void 0 : opt.flowControlResume) || FLOW_CONTROL_RESUME;
+          if (!opt) {
+            return;
+          }
+          this._checkType("name", opt.name ? opt.name : void 0, "string");
+          this._checkType("cols", opt.cols ? opt.cols : void 0, "number");
+          this._checkType("rows", opt.rows ? opt.rows : void 0, "number");
+          this._checkType("cwd", opt.cwd ? opt.cwd : void 0, "string");
+          this._checkType("env", opt.env ? opt.env : void 0, "object");
+          this._checkType("uid", opt.uid ? opt.uid : void 0, "number");
+          this._checkType("gid", opt.gid ? opt.gid : void 0, "number");
+          this._checkType("encoding", opt.encoding ? opt.encoding : void 0, "string");
+        }
+        Object.defineProperty(Terminal2.prototype, "onData", {
+          get: function() {
+            return this._onData.event;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(Terminal2.prototype, "onExit", {
+          get: function() {
+            return this._onExit.event;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(Terminal2.prototype, "pid", {
+          get: function() {
+            return this._pid;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(Terminal2.prototype, "cols", {
+          get: function() {
+            return this._cols;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(Terminal2.prototype, "rows", {
+          get: function() {
+            return this._rows;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Terminal2.prototype.write = function(data) {
+          if (this.handleFlowControl) {
+            if (data === this._flowControlPause) {
+              this.pause();
+              return;
+            }
+            if (data === this._flowControlResume) {
+              this.resume();
+              return;
+            }
+          }
+          this._write(data);
+        };
+        Terminal2.prototype._forwardEvents = function() {
+          var _this = this;
+          this.on("data", function(e) {
+            return _this._onData.fire(e);
+          });
+          this.on("exit", function(exitCode, signal) {
+            return _this._onExit.fire({ exitCode, signal });
+          });
+        };
+        Terminal2.prototype._checkType = function(name, value, type, allowArray) {
+          if (allowArray === void 0) {
+            allowArray = false;
+          }
+          if (value === void 0) {
+            return;
+          }
+          if (allowArray) {
+            if (Array.isArray(value)) {
+              value.forEach(function(v, i) {
+                if (typeof v !== type) {
+                  throw new Error(name + "[" + i + "] must be a " + type + " (not a " + typeof v[i] + ")");
+                }
+              });
+              return;
+            }
+          }
+          if (typeof value !== type) {
+            throw new Error(name + " must be a " + type + " (not a " + typeof value + ")");
+          }
+        };
+        Terminal2.prototype.end = function(data) {
+          this._socket.end(data);
+        };
+        Terminal2.prototype.pipe = function(dest, options) {
+          return this._socket.pipe(dest, options);
+        };
+        Terminal2.prototype.pause = function() {
+          return this._socket.pause();
+        };
+        Terminal2.prototype.resume = function() {
+          return this._socket.resume();
+        };
+        Terminal2.prototype.setEncoding = function(encoding) {
+          if (this._socket._decoder) {
+            delete this._socket._decoder;
+          }
+          if (encoding) {
+            this._socket.setEncoding(encoding);
+          }
+        };
+        Terminal2.prototype.addListener = function(eventName, listener) {
+          this.on(eventName, listener);
+        };
+        Terminal2.prototype.on = function(eventName, listener) {
+          if (eventName === "close") {
+            this._internalee.on("close", listener);
+            return;
+          }
+          this._socket.on(eventName, listener);
+        };
+        Terminal2.prototype.emit = function(eventName) {
+          var args = [];
+          for (var _i = 1; _i < arguments.length; _i++) {
+            args[_i - 1] = arguments[_i];
+          }
+          if (eventName === "close") {
+            return this._internalee.emit.apply(this._internalee, arguments);
+          }
+          return this._socket.emit.apply(this._socket, arguments);
+        };
+        Terminal2.prototype.listeners = function(eventName) {
+          return this._socket.listeners(eventName);
+        };
+        Terminal2.prototype.removeListener = function(eventName, listener) {
+          this._socket.removeListener(eventName, listener);
+        };
+        Terminal2.prototype.removeAllListeners = function(eventName) {
+          this._socket.removeAllListeners(eventName);
+        };
+        Terminal2.prototype.once = function(eventName, listener) {
+          this._socket.once(eventName, listener);
+        };
+        Terminal2.prototype._close = function() {
+          this._socket.readable = false;
+          this.write = function() {
+          };
+          this.end = function() {
+          };
+          this._writable = false;
+          this._readable = false;
+        };
+        Terminal2.prototype._parseEnv = function(env) {
+          var keys = Object.keys(env || {});
+          var pairs = [];
+          for (var i = 0; i < keys.length; i++) {
+            if (keys[i] === void 0) {
+              continue;
+            }
+            pairs.push(keys[i] + "=" + env[keys[i]]);
+          }
+          return pairs;
+        };
+        return Terminal2;
+      })()
+    );
+    exports2.Terminal = Terminal;
+  }
+});
+
+// node_modules/node-pty/lib/shared/conout.js
+var require_conout = __commonJS({
+  "node_modules/node-pty/lib/shared/conout.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.getWorkerPipeName = void 0;
+    function getWorkerPipeName(conoutPipeName) {
+      return conoutPipeName + "-worker";
+    }
+    exports2.getWorkerPipeName = getWorkerPipeName;
+  }
+});
+
+// node_modules/node-pty/lib/windowsConoutConnection.js
+var require_windowsConoutConnection = __commonJS({
+  "node_modules/node-pty/lib/windowsConoutConnection.js"(exports2) {
+    "use strict";
+    var __awaiter = exports2 && exports2.__awaiter || function(thisArg, _arguments, P, generator) {
+      function adopt(value) {
+        return value instanceof P ? value : new P(function(resolve) {
+          resolve(value);
+        });
+      }
+      return new (P || (P = Promise))(function(resolve, reject) {
+        function fulfilled(value) {
+          try {
+            step(generator.next(value));
+          } catch (e) {
+            reject(e);
+          }
+        }
+        function rejected(value) {
+          try {
+            step(generator["throw"](value));
+          } catch (e) {
+            reject(e);
+          }
+        }
+        function step(result) {
+          result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+        }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+      });
+    };
+    var __generator = exports2 && exports2.__generator || function(thisArg, body) {
+      var _ = { label: 0, sent: function() {
+        if (t[0] & 1) throw t[1];
+        return t[1];
+      }, trys: [], ops: [] }, f, y, t, g;
+      return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() {
+        return this;
+      }), g;
+      function verb(n) {
+        return function(v) {
+          return step([n, v]);
+        };
+      }
+      function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+          if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+          if (y = 0, t) op = [op[0] & 2, t.value];
+          switch (op[0]) {
+            case 0:
+            case 1:
+              t = op;
+              break;
+            case 4:
+              _.label++;
+              return { value: op[1], done: false };
+            case 5:
+              _.label++;
+              y = op[1];
+              op = [0];
+              continue;
+            case 7:
+              op = _.ops.pop();
+              _.trys.pop();
+              continue;
+            default:
+              if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) {
+                _ = 0;
+                continue;
+              }
+              if (op[0] === 3 && (!t || op[1] > t[0] && op[1] < t[3])) {
+                _.label = op[1];
+                break;
+              }
+              if (op[0] === 6 && _.label < t[1]) {
+                _.label = t[1];
+                t = op;
+                break;
+              }
+              if (t && _.label < t[2]) {
+                _.label = t[2];
+                _.ops.push(op);
+                break;
+              }
+              if (t[2]) _.ops.pop();
+              _.trys.pop();
+              continue;
+          }
+          op = body.call(thisArg, _);
+        } catch (e) {
+          op = [6, e];
+          y = 0;
+        } finally {
+          f = t = 0;
+        }
+        if (op[0] & 5) throw op[1];
+        return { value: op[0] ? op[1] : void 0, done: true };
+      }
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.ConoutConnection = void 0;
+    var worker_threads_1 = require("worker_threads");
+    var conout_1 = require_conout();
+    var path_1 = require("path");
+    var eventEmitter2_1 = require_eventEmitter2();
+    var FLUSH_DATA_INTERVAL = 1e3;
+    var ConoutConnection = (
+      /** @class */
+      (function() {
+        function ConoutConnection2(_conoutPipeName, _useConptyDll) {
+          var _this = this;
+          this._conoutPipeName = _conoutPipeName;
+          this._useConptyDll = _useConptyDll;
+          this._isDisposed = false;
+          this._onReady = new eventEmitter2_1.EventEmitter2();
+          var workerData = {
+            conoutPipeName: _conoutPipeName
+          };
+          var scriptPath = __dirname.replace("node_modules.asar", "node_modules.asar.unpacked");
+          this._worker = new worker_threads_1.Worker(path_1.join(scriptPath, "worker/conoutSocketWorker.js"), { workerData });
+          this._worker.on("message", function(message) {
+            switch (message) {
+              case 1:
+                _this._onReady.fire();
+                return;
+              default:
+                console.warn("Unexpected ConoutWorkerMessage", message);
+            }
+          });
+        }
+        Object.defineProperty(ConoutConnection2.prototype, "onReady", {
+          get: function() {
+            return this._onReady.event;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        ConoutConnection2.prototype.dispose = function() {
+          if (!this._useConptyDll && this._isDisposed) {
+            return;
+          }
+          this._isDisposed = true;
+          this._drainDataAndClose();
+        };
+        ConoutConnection2.prototype.connectSocket = function(socket) {
+          socket.connect(conout_1.getWorkerPipeName(this._conoutPipeName));
+        };
+        ConoutConnection2.prototype._drainDataAndClose = function() {
+          var _this = this;
+          if (this._drainTimeout) {
+            clearTimeout(this._drainTimeout);
+          }
+          this._drainTimeout = setTimeout(function() {
+            return _this._destroySocket();
+          }, FLUSH_DATA_INTERVAL);
+        };
+        ConoutConnection2.prototype._destroySocket = function() {
+          return __awaiter(this, void 0, void 0, function() {
+            return __generator(this, function(_a) {
+              switch (_a.label) {
+                case 0:
+                  return [4, this._worker.terminate()];
+                case 1:
+                  _a.sent();
+                  return [
+                    2
+                    /*return*/
+                  ];
+              }
+            });
+          });
+        };
+        return ConoutConnection2;
+      })()
+    );
+    exports2.ConoutConnection = ConoutConnection;
+  }
+});
+
+// node_modules/node-pty/lib/windowsPtyAgent.js
+var require_windowsPtyAgent = __commonJS({
+  "node_modules/node-pty/lib/windowsPtyAgent.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.argsToCommandLine = exports2.WindowsPtyAgent = void 0;
+    var fs5 = require("fs");
+    var os2 = require("os");
+    var path5 = require("path");
+    var child_process_1 = require("child_process");
+    var net_1 = require("net");
+    var windowsConoutConnection_1 = require_windowsConoutConnection();
+    var utils_1 = require_utils4();
+    var conptyNative;
+    var winptyNative;
+    var FLUSH_DATA_INTERVAL = 1e3;
+    var WindowsPtyAgent = (
+      /** @class */
+      (function() {
+        function WindowsPtyAgent2(file, args, env, cwd, cols, rows, debug, _useConpty, _useConptyDll, conptyInheritCursor) {
+          var _this = this;
+          if (_useConptyDll === void 0) {
+            _useConptyDll = false;
+          }
+          if (conptyInheritCursor === void 0) {
+            conptyInheritCursor = false;
+          }
+          this._useConpty = _useConpty;
+          this._useConptyDll = _useConptyDll;
+          this._pid = 0;
+          this._innerPid = 0;
+          if (this._useConpty === void 0 || this._useConpty === true) {
+            this._useConpty = this._getWindowsBuildNumber() >= 18309;
+          }
+          if (this._useConpty) {
+            if (!conptyNative) {
+              conptyNative = utils_1.loadNativeModule("conpty").module;
+            }
+          } else {
+            if (!winptyNative) {
+              winptyNative = utils_1.loadNativeModule("pty").module;
+            }
+          }
+          this._ptyNative = this._useConpty ? conptyNative : winptyNative;
+          cwd = path5.resolve(cwd);
+          var commandLine = argsToCommandLine(file, args);
+          var term;
+          if (this._useConpty) {
+            term = this._ptyNative.startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
+          } else {
+            term = this._ptyNative.startProcess(file, commandLine, env, cwd, cols, rows, debug);
+            this._pid = term.pid;
+            this._innerPid = term.innerPid;
+          }
+          this._fd = term.fd;
+          this._pty = term.pty;
+          this._outSocket = new net_1.Socket();
+          this._outSocket.setEncoding("utf8");
+          this._conoutSocketWorker = new windowsConoutConnection_1.ConoutConnection(term.conout, this._useConptyDll);
+          this._conoutSocketWorker.onReady(function() {
+            _this._conoutSocketWorker.connectSocket(_this._outSocket);
+          });
+          this._outSocket.on("connect", function() {
+            _this._outSocket.emit("ready_datapipe");
+          });
+          var inSocketFD = fs5.openSync(term.conin, "w");
+          this._inSocket = new net_1.Socket({
+            fd: inSocketFD,
+            readable: false,
+            writable: true
+          });
+          this._inSocket.setEncoding("utf8");
+          if (this._useConpty) {
+            var connect = this._ptyNative.connect(this._pty, commandLine, cwd, env, this._useConptyDll, function(c) {
+              return _this._$onProcessExit(c);
+            });
+            this._innerPid = connect.pid;
+          }
+        }
+        Object.defineProperty(WindowsPtyAgent2.prototype, "inSocket", {
+          get: function() {
+            return this._inSocket;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(WindowsPtyAgent2.prototype, "outSocket", {
+          get: function() {
+            return this._outSocket;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(WindowsPtyAgent2.prototype, "fd", {
+          get: function() {
+            return this._fd;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(WindowsPtyAgent2.prototype, "innerPid", {
+          get: function() {
+            return this._innerPid;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(WindowsPtyAgent2.prototype, "pty", {
+          get: function() {
+            return this._pty;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        WindowsPtyAgent2.prototype.resize = function(cols, rows) {
+          if (this._useConpty) {
+            if (this._exitCode !== void 0) {
+              throw new Error("Cannot resize a pty that has already exited");
+            }
+            this._ptyNative.resize(this._pty, cols, rows, this._useConptyDll);
+            return;
+          }
+          this._ptyNative.resize(this._pid, cols, rows);
+        };
+        WindowsPtyAgent2.prototype.clear = function() {
+          if (this._useConpty) {
+            this._ptyNative.clear(this._pty, this._useConptyDll);
+          }
+        };
+        WindowsPtyAgent2.prototype.kill = function() {
+          var _this = this;
+          if (this._useConpty) {
+            if (!this._useConptyDll) {
+              this._inSocket.readable = false;
+              this._outSocket.readable = false;
+              this._getConsoleProcessList().then(function(consoleProcessList) {
+                consoleProcessList.forEach(function(pid) {
+                  try {
+                    process.kill(pid);
+                  } catch (e) {
+                  }
+                });
+              });
+              this._ptyNative.kill(this._pty, this._useConptyDll);
+              this._conoutSocketWorker.dispose();
+            } else {
+              this._inSocket.destroy();
+              this._ptyNative.kill(this._pty, this._useConptyDll);
+              this._outSocket.on("data", function() {
+                _this._conoutSocketWorker.dispose();
+              });
+            }
+          } else {
+            var processList = this._ptyNative.getProcessList(this._pid);
+            this._ptyNative.kill(this._pid, this._innerPid);
+            processList.forEach(function(pid) {
+              try {
+                process.kill(pid);
+              } catch (e) {
+              }
+            });
+          }
+        };
+        WindowsPtyAgent2.prototype._getConsoleProcessList = function() {
+          var _this = this;
+          return new Promise(function(resolve) {
+            var agent = child_process_1.fork(path5.join(__dirname, "conpty_console_list_agent"), [_this._innerPid.toString()]);
+            agent.on("message", function(message) {
+              clearTimeout(timeout);
+              resolve(message.consoleProcessList);
+            });
+            var timeout = setTimeout(function() {
+              agent.kill();
+              resolve([_this._innerPid]);
+            }, 5e3);
+          });
+        };
+        Object.defineProperty(WindowsPtyAgent2.prototype, "exitCode", {
+          get: function() {
+            if (this._useConpty) {
+              return this._exitCode;
+            }
+            var winptyExitCode = this._ptyNative.getExitCode(this._innerPid);
+            return winptyExitCode === -1 ? void 0 : winptyExitCode;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        WindowsPtyAgent2.prototype._getWindowsBuildNumber = function() {
+          var osVersion = /(\d+)\.(\d+)\.(\d+)/g.exec(os2.release());
+          var buildNumber = 0;
+          if (osVersion && osVersion.length === 4) {
+            buildNumber = parseInt(osVersion[3]);
+          }
+          return buildNumber;
+        };
+        WindowsPtyAgent2.prototype._generatePipeName = function() {
+          return "conpty-" + Math.random() * 1e7;
+        };
+        WindowsPtyAgent2.prototype._$onProcessExit = function(exitCode) {
+          var _this = this;
+          this._exitCode = exitCode;
+          if (!this._useConptyDll) {
+            this._flushDataAndCleanUp();
+            this._outSocket.on("data", function() {
+              return _this._flushDataAndCleanUp();
+            });
+          }
+        };
+        WindowsPtyAgent2.prototype._flushDataAndCleanUp = function() {
+          var _this = this;
+          if (this._useConptyDll) {
+            return;
+          }
+          if (this._closeTimeout) {
+            clearTimeout(this._closeTimeout);
+          }
+          this._closeTimeout = setTimeout(function() {
+            return _this._cleanUpProcess();
+          }, FLUSH_DATA_INTERVAL);
+        };
+        WindowsPtyAgent2.prototype._cleanUpProcess = function() {
+          if (this._useConptyDll) {
+            return;
+          }
+          this._inSocket.readable = false;
+          this._outSocket.readable = false;
+          this._outSocket.destroy();
+        };
+        return WindowsPtyAgent2;
+      })()
+    );
+    exports2.WindowsPtyAgent = WindowsPtyAgent;
+    function argsToCommandLine(file, args) {
+      if (isCommandLine(args)) {
+        if (args.length === 0) {
+          return file;
+        }
+        return argsToCommandLine(file, []) + " " + args;
+      }
+      var argv = [file];
+      Array.prototype.push.apply(argv, args);
+      var result = "";
+      for (var argIndex = 0; argIndex < argv.length; argIndex++) {
+        if (argIndex > 0) {
+          result += " ";
+        }
+        var arg = argv[argIndex];
+        var hasLopsidedEnclosingQuote = xOr(arg[0] !== '"', arg[arg.length - 1] !== '"');
+        var hasNoEnclosingQuotes = arg[0] !== '"' && arg[arg.length - 1] !== '"';
+        var quote = arg === "" || (arg.indexOf(" ") !== -1 || arg.indexOf("	") !== -1) && (arg.length > 1 && (hasLopsidedEnclosingQuote || hasNoEnclosingQuotes));
+        if (quote) {
+          result += '"';
+        }
+        var bsCount = 0;
+        for (var i = 0; i < arg.length; i++) {
+          var p = arg[i];
+          if (p === "\\") {
+            bsCount++;
+          } else if (p === '"') {
+            result += repeatText("\\", bsCount * 2 + 1);
+            result += '"';
+            bsCount = 0;
+          } else {
+            result += repeatText("\\", bsCount);
+            bsCount = 0;
+            result += p;
+          }
+        }
+        if (quote) {
+          result += repeatText("\\", bsCount * 2);
+          result += '"';
+        } else {
+          result += repeatText("\\", bsCount);
+        }
+      }
+      return result;
+    }
+    exports2.argsToCommandLine = argsToCommandLine;
+    function isCommandLine(args) {
+      return typeof args === "string";
+    }
+    function repeatText(text, count) {
+      var result = "";
+      for (var i = 0; i < count; i++) {
+        result += text;
+      }
+      return result;
+    }
+    function xOr(arg1, arg2) {
+      return arg1 && !arg2 || !arg1 && arg2;
+    }
+  }
+});
+
+// node_modules/node-pty/lib/windowsTerminal.js
+var require_windowsTerminal = __commonJS({
+  "node_modules/node-pty/lib/windowsTerminal.js"(exports2) {
+    "use strict";
+    var __extends = exports2 && exports2.__extends || /* @__PURE__ */ (function() {
+      var extendStatics = function(d, b) {
+        extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
+          d2.__proto__ = b2;
+        } || function(d2, b2) {
+          for (var p in b2) if (b2.hasOwnProperty(p)) d2[p] = b2[p];
+        };
+        return extendStatics(d, b);
+      };
+      return function(d, b) {
+        extendStatics(d, b);
+        function __() {
+          this.constructor = d;
+        }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.WindowsTerminal = void 0;
+    var terminal_1 = require_terminal();
+    var windowsPtyAgent_1 = require_windowsPtyAgent();
+    var utils_1 = require_utils4();
+    var DEFAULT_FILE = "cmd.exe";
+    var DEFAULT_NAME = "Windows Shell";
+    var WindowsTerminal = (
+      /** @class */
+      (function(_super) {
+        __extends(WindowsTerminal2, _super);
+        function WindowsTerminal2(file, args, opt) {
+          var _this = _super.call(this, opt) || this;
+          _this._checkType("args", args, "string", true);
+          args = args || [];
+          file = file || DEFAULT_FILE;
+          opt = opt || {};
+          opt.env = opt.env || process.env;
+          if (opt.encoding) {
+            console.warn("Setting encoding on Windows is not supported");
+          }
+          var env = utils_1.assign({}, opt.env);
+          _this._cols = opt.cols || terminal_1.DEFAULT_COLS;
+          _this._rows = opt.rows || terminal_1.DEFAULT_ROWS;
+          var cwd = opt.cwd || process.cwd();
+          var name = opt.name || env.TERM || DEFAULT_NAME;
+          var parsedEnv = _this._parseEnv(env);
+          _this._isReady = false;
+          _this._deferreds = [];
+          _this._agent = new windowsPtyAgent_1.WindowsPtyAgent(file, args, parsedEnv, cwd, _this._cols, _this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
+          _this._socket = _this._agent.outSocket;
+          _this._pid = _this._agent.innerPid;
+          _this._fd = _this._agent.fd;
+          _this._pty = _this._agent.pty;
+          _this._socket.on("ready_datapipe", function() {
+            _this._socket.once("data", function() {
+              if (!_this._isReady) {
+                _this._isReady = true;
+                _this._deferreds.forEach(function(fn) {
+                  fn.run();
+                });
+                _this._deferreds = [];
+              }
+            });
+            _this._socket.on("error", function(err) {
+              _this._close();
+              if (err.code) {
+                if (~err.code.indexOf("errno 5") || ~err.code.indexOf("EIO"))
+                  return;
+              }
+              if (_this.listeners("error").length < 2) {
+                throw err;
+              }
+            });
+            _this._socket.on("close", function() {
+              _this.emit("exit", _this._agent.exitCode);
+              _this._close();
+            });
+          });
+          _this._file = file;
+          _this._name = name;
+          _this._readable = true;
+          _this._writable = true;
+          _this._forwardEvents();
+          return _this;
+        }
+        WindowsTerminal2.prototype._write = function(data) {
+          this._defer(this._doWrite, data);
+        };
+        WindowsTerminal2.prototype._doWrite = function(data) {
+          this._agent.inSocket.write(data);
+        };
+        WindowsTerminal2.open = function(options) {
+          throw new Error("open() not supported on windows, use Fork() instead.");
+        };
+        WindowsTerminal2.prototype.resize = function(cols, rows) {
+          var _this = this;
+          if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
+            throw new Error("resizing must be done using positive cols and rows");
+          }
+          this._deferNoArgs(function() {
+            _this._agent.resize(cols, rows);
+            _this._cols = cols;
+            _this._rows = rows;
+          });
+        };
+        WindowsTerminal2.prototype.clear = function() {
+          var _this = this;
+          this._deferNoArgs(function() {
+            _this._agent.clear();
+          });
+        };
+        WindowsTerminal2.prototype.destroy = function() {
+          var _this = this;
+          this._deferNoArgs(function() {
+            _this.kill();
+          });
+        };
+        WindowsTerminal2.prototype.kill = function(signal) {
+          var _this = this;
+          this._deferNoArgs(function() {
+            if (signal) {
+              throw new Error("Signals not supported on windows.");
+            }
+            _this._close();
+            _this._agent.kill();
+          });
+        };
+        WindowsTerminal2.prototype._deferNoArgs = function(deferredFn) {
+          var _this = this;
+          if (this._isReady) {
+            deferredFn.call(this);
+            return;
+          }
+          this._deferreds.push({
+            run: function() {
+              return deferredFn.call(_this);
+            }
+          });
+        };
+        WindowsTerminal2.prototype._defer = function(deferredFn, arg) {
+          var _this = this;
+          if (this._isReady) {
+            deferredFn.call(this, arg);
+            return;
+          }
+          this._deferreds.push({
+            run: function() {
+              return deferredFn.call(_this, arg);
+            }
+          });
+        };
+        Object.defineProperty(WindowsTerminal2.prototype, "process", {
+          get: function() {
+            return this._name;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(WindowsTerminal2.prototype, "master", {
+          get: function() {
+            throw new Error("master is not supported on Windows");
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(WindowsTerminal2.prototype, "slave", {
+          get: function() {
+            throw new Error("slave is not supported on Windows");
+          },
+          enumerable: false,
+          configurable: true
+        });
+        return WindowsTerminal2;
+      })(terminal_1.Terminal)
+    );
+    exports2.WindowsTerminal = WindowsTerminal;
+  }
+});
+
+// node_modules/node-pty/lib/unixTerminal.js
+var require_unixTerminal = __commonJS({
+  "node_modules/node-pty/lib/unixTerminal.js"(exports2) {
+    "use strict";
+    var __extends = exports2 && exports2.__extends || /* @__PURE__ */ (function() {
+      var extendStatics = function(d, b) {
+        extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
+          d2.__proto__ = b2;
+        } || function(d2, b2) {
+          for (var p in b2) if (b2.hasOwnProperty(p)) d2[p] = b2[p];
+        };
+        return extendStatics(d, b);
+      };
+      return function(d, b) {
+        extendStatics(d, b);
+        function __() {
+          this.constructor = d;
+        }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.UnixTerminal = void 0;
+    var fs5 = require("fs");
+    var path5 = require("path");
+    var tty = require("tty");
+    var terminal_1 = require_terminal();
+    var utils_1 = require_utils4();
+    var native = utils_1.loadNativeModule("pty");
+    var pty = native.module;
+    var helperPath = native.dir + "/spawn-helper";
+    helperPath = path5.resolve(__dirname, helperPath);
+    helperPath = helperPath.replace("app.asar", "app.asar.unpacked");
+    helperPath = helperPath.replace("node_modules.asar", "node_modules.asar.unpacked");
+    var DEFAULT_FILE = "sh";
+    var DEFAULT_NAME = "xterm";
+    var DESTROY_SOCKET_TIMEOUT_MS = 200;
+    var UnixTerminal = (
+      /** @class */
+      (function(_super) {
+        __extends(UnixTerminal2, _super);
+        function UnixTerminal2(file, args, opt) {
+          var _a, _b;
+          var _this = _super.call(this, opt) || this;
+          _this._boundClose = false;
+          _this._emittedClose = false;
+          if (typeof args === "string") {
+            throw new Error("args as a string is not supported on unix.");
+          }
+          args = args || [];
+          file = file || DEFAULT_FILE;
+          opt = opt || {};
+          opt.env = opt.env || process.env;
+          _this._cols = opt.cols || terminal_1.DEFAULT_COLS;
+          _this._rows = opt.rows || terminal_1.DEFAULT_ROWS;
+          var uid = (_a = opt.uid) !== null && _a !== void 0 ? _a : -1;
+          var gid = (_b = opt.gid) !== null && _b !== void 0 ? _b : -1;
+          var env = utils_1.assign({}, opt.env);
+          if (opt.env === process.env) {
+            _this._sanitizeEnv(env);
+          }
+          var cwd = opt.cwd || process.cwd();
+          env.PWD = cwd;
+          var name = opt.name || env.TERM || DEFAULT_NAME;
+          env.TERM = name;
+          var parsedEnv = _this._parseEnv(env);
+          var encoding = opt.encoding === void 0 ? "utf8" : opt.encoding;
+          var onexit = function(code, signal) {
+            if (!_this._emittedClose) {
+              if (_this._boundClose) {
+                return;
+              }
+              _this._boundClose = true;
+              var timeout_1 = setTimeout(function() {
+                timeout_1 = null;
+                _this._socket.destroy();
+              }, DESTROY_SOCKET_TIMEOUT_MS);
+              _this.once("close", function() {
+                if (timeout_1 !== null) {
+                  clearTimeout(timeout_1);
+                }
+                _this.emit("exit", code, signal);
+              });
+              return;
+            }
+            _this.emit("exit", code, signal);
+          };
+          var term = pty.fork(file, args, parsedEnv, cwd, _this._cols, _this._rows, uid, gid, encoding === "utf8", helperPath, onexit);
+          _this._socket = new tty.ReadStream(term.fd);
+          if (encoding !== null) {
+            _this._socket.setEncoding(encoding);
+          }
+          _this._writeStream = new CustomWriteStream(term.fd, encoding || void 0);
+          _this._socket.on("error", function(err) {
+            if (err.code) {
+              if (~err.code.indexOf("EAGAIN")) {
+                return;
+              }
+            }
+            _this._close();
+            if (!_this._emittedClose) {
+              _this._emittedClose = true;
+              _this.emit("close");
+            }
+            if (err.code) {
+              if (~err.code.indexOf("errno 5") || ~err.code.indexOf("EIO")) {
+                return;
+              }
+            }
+            if (_this.listeners("error").length < 2) {
+              throw err;
+            }
+          });
+          _this._pid = term.pid;
+          _this._fd = term.fd;
+          _this._pty = term.pty;
+          _this._file = file;
+          _this._name = name;
+          _this._readable = true;
+          _this._writable = true;
+          _this._socket.on("close", function() {
+            if (_this._emittedClose) {
+              return;
+            }
+            _this._emittedClose = true;
+            _this._close();
+            _this.emit("close");
+          });
+          _this._forwardEvents();
+          return _this;
+        }
+        Object.defineProperty(UnixTerminal2.prototype, "master", {
+          get: function() {
+            return this._master;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(UnixTerminal2.prototype, "slave", {
+          get: function() {
+            return this._slave;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        UnixTerminal2.prototype._write = function(data) {
+          this._writeStream.write(data);
+        };
+        Object.defineProperty(UnixTerminal2.prototype, "fd", {
+          /* Accessors */
+          get: function() {
+            return this._fd;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        Object.defineProperty(UnixTerminal2.prototype, "ptsName", {
+          get: function() {
+            return this._pty;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        UnixTerminal2.open = function(opt) {
+          var self = Object.create(UnixTerminal2.prototype);
+          opt = opt || {};
+          if (arguments.length > 1) {
+            opt = {
+              cols: arguments[1],
+              rows: arguments[2]
+            };
+          }
+          var cols = opt.cols || terminal_1.DEFAULT_COLS;
+          var rows = opt.rows || terminal_1.DEFAULT_ROWS;
+          var encoding = opt.encoding === void 0 ? "utf8" : opt.encoding;
+          var term = pty.open(cols, rows);
+          self._master = new tty.ReadStream(term.master);
+          if (encoding !== null) {
+            self._master.setEncoding(encoding);
+          }
+          self._master.resume();
+          self._slave = new tty.ReadStream(term.slave);
+          if (encoding !== null) {
+            self._slave.setEncoding(encoding);
+          }
+          self._slave.resume();
+          self._socket = self._master;
+          self._pid = -1;
+          self._fd = term.master;
+          self._pty = term.pty;
+          self._file = process.argv[0] || "node";
+          self._name = process.env.TERM || "";
+          self._readable = true;
+          self._writable = true;
+          self._socket.on("error", function(err) {
+            self._close();
+            if (self.listeners("error").length < 2) {
+              throw err;
+            }
+          });
+          self._socket.on("close", function() {
+            self._close();
+          });
+          return self;
+        };
+        UnixTerminal2.prototype.destroy = function() {
+          var _this = this;
+          this._close();
+          this._socket.once("close", function() {
+            _this.kill("SIGHUP");
+          });
+          this._socket.destroy();
+          this._writeStream.dispose();
+        };
+        UnixTerminal2.prototype.kill = function(signal) {
+          try {
+            process.kill(this.pid, signal || "SIGHUP");
+          } catch (e) {
+          }
+        };
+        Object.defineProperty(UnixTerminal2.prototype, "process", {
+          /**
+           * Gets the name of the process.
+           */
+          get: function() {
+            if (process.platform === "darwin") {
+              var title = pty.process(this._fd);
+              return title !== "kernel_task" ? title : this._file;
+            }
+            return pty.process(this._fd, this._pty) || this._file;
+          },
+          enumerable: false,
+          configurable: true
+        });
+        UnixTerminal2.prototype.resize = function(cols, rows) {
+          if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
+            throw new Error("resizing must be done using positive cols and rows");
+          }
+          pty.resize(this._fd, cols, rows);
+          this._cols = cols;
+          this._rows = rows;
+        };
+        UnixTerminal2.prototype.clear = function() {
+        };
+        UnixTerminal2.prototype._sanitizeEnv = function(env) {
+          delete env["TMUX"];
+          delete env["TMUX_PANE"];
+          delete env["STY"];
+          delete env["WINDOW"];
+          delete env["WINDOWID"];
+          delete env["TERMCAP"];
+          delete env["COLUMNS"];
+          delete env["LINES"];
+        };
+        return UnixTerminal2;
+      })(terminal_1.Terminal)
+    );
+    exports2.UnixTerminal = UnixTerminal;
+    var CustomWriteStream = (
+      /** @class */
+      (function() {
+        function CustomWriteStream2(_fd, _encoding) {
+          this._fd = _fd;
+          this._encoding = _encoding;
+          this._writeQueue = [];
+        }
+        CustomWriteStream2.prototype.dispose = function() {
+          clearImmediate(this._writeImmediate);
+          this._writeImmediate = void 0;
+        };
+        CustomWriteStream2.prototype.write = function(data) {
+          var buffer = typeof data === "string" ? Buffer.from(data, this._encoding) : Buffer.from(data);
+          if (buffer.byteLength !== 0) {
+            this._writeQueue.push({ buffer, offset: 0 });
+            if (this._writeQueue.length === 1) {
+              this._processWriteQueue();
+            }
+          }
+        };
+        CustomWriteStream2.prototype._processWriteQueue = function() {
+          var _this = this;
+          this._writeImmediate = void 0;
+          if (this._writeQueue.length === 0) {
+            return;
+          }
+          var task = this._writeQueue[0];
+          fs5.write(this._fd, task.buffer, task.offset, function(err, written) {
+            if (err) {
+              if ("code" in err && err.code === "EAGAIN") {
+                _this._writeImmediate = setImmediate(function() {
+                  return _this._processWriteQueue();
+                });
+              } else {
+                _this._writeQueue.length = 0;
+                console.error("Unhandled pty write error", err);
+              }
+              return;
+            }
+            task.offset += written;
+            if (task.offset >= task.buffer.byteLength) {
+              _this._writeQueue.shift();
+            }
+            _this._processWriteQueue();
+          });
+        };
+        return CustomWriteStream2;
+      })()
+    );
+  }
+});
+
+// node_modules/node-pty/lib/index.js
+var require_lib4 = __commonJS({
+  "node_modules/node-pty/lib/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.native = exports2.open = exports2.createTerminal = exports2.fork = exports2.spawn = void 0;
+    var utils_1 = require_utils4();
+    var terminalCtor;
+    if (process.platform === "win32") {
+      terminalCtor = require_windowsTerminal().WindowsTerminal;
+    } else {
+      terminalCtor = require_unixTerminal().UnixTerminal;
+    }
+    function spawn(file, args, opt) {
+      return new terminalCtor(file, args, opt);
+    }
+    exports2.spawn = spawn;
+    function fork(file, args, opt) {
+      return new terminalCtor(file, args, opt);
+    }
+    exports2.fork = fork;
+    function createTerminal(file, args, opt) {
+      return new terminalCtor(file, args, opt);
+    }
+    exports2.createTerminal = createTerminal;
+    function open(options) {
+      return terminalCtor.open(options);
+    }
+    exports2.open = open;
+    exports2.native = process.platform !== "win32" ? utils_1.loadNativeModule("pty").module : null;
   }
 });
 
@@ -37028,11 +38331,11 @@ var require_mime_types2 = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path6) {
-      if (!path6 || typeof path6 !== "string") {
+    function lookup(path5) {
+      if (!path5 || typeof path5 !== "string") {
         return false;
       }
-      var extension3 = extname("x." + path6).toLowerCase().substr(1);
+      var extension3 = extname("x." + path5).toLowerCase().substr(1);
       if (!extension3) {
         return false;
       }
@@ -37169,7 +38472,7 @@ var require_type_is2 = __commonJS({
 });
 
 // node_modules/busboy/lib/utils.js
-var require_utils4 = __commonJS({
+var require_utils5 = __commonJS({
   "node_modules/busboy/lib/utils.js"(exports2, module2) {
     "use strict";
     function parseContentType(str) {
@@ -37541,19 +38844,19 @@ var require_utils4 = __commonJS({
       if (decode)
         return decode(data, hint);
     }
-    function basename(path6) {
-      if (typeof path6 !== "string")
+    function basename(path5) {
+      if (typeof path5 !== "string")
         return "";
-      for (let i = path6.length - 1; i >= 0; --i) {
-        switch (path6.charCodeAt(i)) {
+      for (let i = path5.length - 1; i >= 0; --i) {
+        switch (path5.charCodeAt(i)) {
           case 47:
           // '/'
           case 92:
-            path6 = path6.slice(i + 1);
-            return path6 === ".." || path6 === "." ? "" : path6;
+            path5 = path5.slice(i + 1);
+            return path5 === ".." || path5 === "." ? "" : path5;
         }
       }
-      return path6 === ".." || path6 === "." ? "" : path6;
+      return path5 === ".." || path5 === "." ? "" : path5;
     }
     var TOKEN = [
       0,
@@ -39264,7 +40567,7 @@ var require_multipart = __commonJS({
       getDecoder,
       parseContentType,
       parseDisposition
-    } = require_utils4();
+    } = require_utils5();
     var BUF_CRLF = Buffer.from("\r\n");
     var BUF_CR = Buffer.from("\r");
     var BUF_DASH = Buffer.from("-");
@@ -40304,7 +41607,7 @@ var require_urlencoded2 = __commonJS({
   "node_modules/busboy/lib/types/urlencoded.js"(exports2, module2) {
     "use strict";
     var { Writable } = require("stream");
-    var { getDecoder } = require_utils4();
+    var { getDecoder } = require_utils5();
     var URLEncoded = class extends Writable {
       constructor(cfg) {
         const streamOpts = {
@@ -40847,10 +42150,10 @@ var require_urlencoded2 = __commonJS({
 });
 
 // node_modules/busboy/lib/index.js
-var require_lib4 = __commonJS({
+var require_lib5 = __commonJS({
   "node_modules/busboy/lib/index.js"(exports2, module2) {
     "use strict";
-    var { parseContentType } = require_utils4();
+    var { parseContentType } = require_utils5();
     function getInstance(cfg) {
       const headers = cfg.headers;
       const conType = parseContentType(headers["content-type"]);
@@ -41209,7 +42512,7 @@ var require_make_middleware = __commonJS({
   "node_modules/multer/lib/make-middleware.js"(exports2, module2) {
     var is = require_type_is2();
     var AsyncResource = require("async_hooks").AsyncResource;
-    var Busboy = require_lib4();
+    var Busboy = require_lib5();
     var appendField = require_append_field();
     var Counter = require_counter();
     var MulterError = require_multer_error();
@@ -41534,7 +42837,7 @@ var require_disk = __commonJS({
   "node_modules/multer/storage/disk.js"(exports2, module2) {
     var fs5 = require("fs");
     var os2 = require("os");
-    var path6 = require("path");
+    var path5 = require("path");
     var crypto2 = require("crypto");
     var pipeline = require("stream").pipeline;
     var MulterError = require_multer_error();
@@ -41573,7 +42876,7 @@ var require_disk = __commonJS({
         if (err) return cb(err);
         that.getFilename(req, file, function(err2, filename) {
           if (err2) return cb(err2);
-          var finalPath = path6.join(destination, filename);
+          var finalPath = path5.join(destination, filename);
           if (file.stream.destroyed) return cb(new MulterError("STREAM_DESTROYED"));
           var outStream = fs5.createWriteStream(finalPath);
           file.path = finalPath;
@@ -41614,15 +42917,15 @@ var require_disk = __commonJS({
       });
     };
     DiskStorage.prototype._removeFile = function _removeFile(req, file, cb) {
-      var path7 = file.path;
+      var path6 = file.path;
       delete file.destination;
       delete file.filename;
       delete file.path;
       function unlink() {
         var flush = flushingFiles.get(file);
-        if (!flush) return fs5.unlink(path7, cb);
+        if (!flush) return fs5.unlink(path6, cb);
         flush.onClosed = function() {
-          fs5.unlink(path7, cb);
+          fs5.unlink(path6, cb);
         };
       }
       var outStream = openStreams.get(file);
@@ -41792,7 +43095,7 @@ var require_multer = __commonJS({
 var import_express2 = __toESM(require_express2(), 1);
 var import_http = __toESM(require("http"), 1);
 var import_https = __toESM(require("https"), 1);
-var import_path5 = __toESM(require("path"), 1);
+var import_path4 = __toESM(require("path"), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_dotenv = __toESM(require_main(), 1);
 var import_fs4 = __toESM(require("fs"), 1);
@@ -41916,26 +43219,12 @@ function ensureNativePtyBinary() {
 }
 
 // server/pty-adapter.ts
-var import_module = require("module");
-var import_path2 = __toESM(require("path"), 1);
-function getReq() {
-  if (typeof require !== "undefined") {
-    return require;
-  }
-  return (0, import_module.createRequire)(import_path2.default.resolve(process.cwd(), "package.json"));
-}
 var ptyInstance = null;
 function getPty() {
   if (ptyInstance) return ptyInstance;
-  const req = getReq();
-  try {
-    ptyInstance = req("node-pty");
-    return ptyInstance;
-  } catch (err) {
-  }
   ensureNativePtyBinary();
   try {
-    ptyInstance = req("node-pty");
+    ptyInstance = require_lib4();
     return ptyInstance;
   } catch (err) {
     console.error("[PTY] \u8F7D\u5165 node-pty \u5931\u8D25:", err);
@@ -42149,12 +43438,12 @@ var PtyManager = class {
 // server/auth.ts
 var import_crypto = __toESM(require("crypto"), 1);
 var import_fs2 = __toESM(require("fs"), 1);
-var import_path3 = __toESM(require("path"), 1);
+var import_path2 = __toESM(require("path"), 1);
 function getEnvPaths() {
   const root = process.env.WEBTERM_ROOT || process.cwd();
   return {
-    envLocalPath: import_path3.default.resolve(root, ".env.local"),
-    envPath: import_path3.default.resolve(root, ".env")
+    envLocalPath: import_path2.default.resolve(root, ".env.local"),
+    envPath: import_path2.default.resolve(root, ".env")
   };
 }
 function sha256(str) {
@@ -42206,7 +43495,7 @@ TERMINAL_PASSWORD_HASH=${newHash}
 `;
     }
     import_fs2.default.writeFileSync(targetPath, content.trim() + "\n", "utf-8");
-    console.log(`[Auth] Password hash updated and safely persisted to ${import_path3.default.basename(targetPath)} (plaintext never saved)`);
+    console.log(`[Auth] Password hash updated and safely persisted to ${import_path2.default.basename(targetPath)} (plaintext never saved)`);
   } catch (err) {
     console.error(`[Auth] Failed to write password hash to ${targetPath}:`, err);
   }
@@ -42479,7 +43768,7 @@ asrRouter.post("/", upload.single("audio"), async (req, res) => {
 
 // server/cert-utils.ts
 var import_fs3 = __toESM(require("fs"), 1);
-var import_path4 = __toESM(require("path"), 1);
+var import_path3 = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
 function getSubjectAltNames() {
@@ -42497,8 +43786,8 @@ function getSubjectAltNames() {
   return Array.from(altNames);
 }
 function generateSelfSignedCert(certPath2, keyPath2, days = 365) {
-  const certDir = import_path4.default.dirname(certPath2);
-  const keyDir = import_path4.default.dirname(keyPath2);
+  const certDir = import_path3.default.dirname(certPath2);
+  const keyDir = import_path3.default.dirname(keyPath2);
   if (!import_fs3.default.existsSync(certDir)) {
     import_fs3.default.mkdirSync(certDir, { recursive: true });
   }
@@ -42543,11 +43832,11 @@ function ensureCertificates(certPath2, keyPath2) {
 var projectRoot = process.env.WEBTERM_ROOT || process.cwd();
 ensureRuntimeEnvironment(projectRoot);
 ensureNativePtyBinary();
-var localEnv = import_path5.default.resolve(projectRoot, ".env.local");
+var localEnv = import_path4.default.resolve(projectRoot, ".env.local");
 if (import_fs4.default.existsSync(localEnv)) {
   import_dotenv.default.config({ path: localEnv });
 }
-import_dotenv.default.config({ path: import_path5.default.resolve(projectRoot, ".env") });
+import_dotenv.default.config({ path: import_path4.default.resolve(projectRoot, ".env") });
 var app = (0, import_express2.default)();
 function parsePortFromArgs() {
   const args = process.argv.slice(2);
@@ -42573,8 +43862,8 @@ var cliPort = parsePortFromArgs();
 var PORT = cliPort ?? parseInt(process.env.PORT || "13399", 10);
 var HOST = "0.0.0.0";
 var ENABLE_HTTPS = process.env.ENABLE_HTTPS !== "false";
-var certPath = process.env.SSL_CERT_PATH ? import_path5.default.resolve(projectRoot, process.env.SSL_CERT_PATH) : import_path5.default.join(projectRoot, "certs", "cert.pem");
-var keyPath = process.env.SSL_KEY_PATH ? import_path5.default.resolve(projectRoot, process.env.SSL_KEY_PATH) : import_path5.default.join(projectRoot, "certs", "key.pem");
+var certPath = process.env.SSL_CERT_PATH ? import_path4.default.resolve(projectRoot, process.env.SSL_CERT_PATH) : import_path4.default.join(projectRoot, "certs", "cert.pem");
+var keyPath = process.env.SSL_KEY_PATH ? import_path4.default.resolve(projectRoot, process.env.SSL_KEY_PATH) : import_path4.default.join(projectRoot, "certs", "key.pem");
 var server;
 var isHttpsActive = false;
 if (ENABLE_HTTPS) {
@@ -42632,13 +43921,13 @@ app.post("/api/auth/change-password", (req, res) => {
   updatePassword(newPassword);
   res.json({ success: true, message: "Password updated successfully" });
 });
-var distPath = import_path5.default.join(projectRoot, "dist");
+var distPath = import_path4.default.join(projectRoot, "dist");
 app.use(import_express2.default.static(distPath));
 app.use((req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/ws")) {
     return next();
   }
-  const indexPath = import_path5.default.join(distPath, "index.html");
+  const indexPath = import_path4.default.join(distPath, "index.html");
   res.sendFile(indexPath, (err) => {
     if (err) {
       res.status(200).send(`

@@ -91,7 +91,7 @@ export class PtyManager {
       }
     });
 
-    ptyProcess.onExit(({ exitCode, signal }) => {
+    ptyProcess.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
       console.log(`[PtyManager] Process exited for session ${sessionId}: code=${exitCode}, signal=${signal}`);
       const exitMsg = JSON.stringify({
         type: 'exit',
