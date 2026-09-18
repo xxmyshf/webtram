@@ -29,16 +29,45 @@ async function bundleAllInOne() {
   const webtermJsContent = fs.readFileSync(jsPath, 'utf-8');
   console.log(`[Frontend] 已读取 index.html (${(indexHtmlContent.length / 1024).toFixed(2)} KB) 与 webterm.js (${(webtermJsContent.length / 1024).toFixed(2)} KB)`);
 
-  // 2. 读取原生 node-pty 二进制模块 (如果存在)
-  console.log('\n[2/3] 正在内嵌原生 PTY 二进制资产...');
-  let ptyNodeBase64 = '';
-  const ptyNodePath = path.join(projectRoot, 'node_modules/node-pty/build/Release/pty.node');
-  if (fs.existsSync(ptyNodePath)) {
-    const ptyBuf = fs.readFileSync(ptyNodePath);
-    ptyNodeBase64 = ptyBuf.toString('base64');
-    console.log(`[PTY] 已成功内嵌原生模块 pty.node (${(ptyBuf.length / 1024).toFixed(2)} KB)`);
-  } else {
-    console.warn('[PTY] 提示: 未在构建环境中找到 pty.node, 运行时将尝试调用系统的 node-pty');
+  // 2. 读取原生 node-pty 二进制模块 (支持多架构: linux-x64, linux-arm64, darwin-arm64, darwin-x64)
+  console.log('\n[2/3] 正在内嵌原生 PTY 多平台/多架构二进制资产...');
+  const embeddedPtyBinaries: Record<string, { ptyNode: string; spawnHelper?: string }> = {};
+
+  const targets = [
+    { platform: 'linux', arch: 'x64', dir: path.join(projectRoot, 'bin/linux-x64') },
+    { platform: 'linux', arch: 'arm64', dir: path.join(projectRoot, 'bin/linux-arm64') },
+    { platform: 'darwin', arch: 'arm64', dir: path.join(projectRoot, 'bin/darwin-arm64') },
+    { platform: 'darwin', arch: 'x64', dir: path.join(projectRoot, 'bin/darwin-x64') },
+  ];
+
+  let defaultPtyBase64 = '';
+
+  for (const target of targets) {
+    const key = `${target.platform}-${target.arch}`;
+    const ptyPath = path.join(target.dir, 'pty.node');
+    if (fs.existsSync(ptyPath)) {
+      const ptyBuf = fs.readFileSync(ptyPath);
+      const entry: { ptyNode: string; spawnHelper?: string } = {
+        ptyNode: ptyBuf.toString('base64'),
+      };
+      const helperPath = path.join(target.dir, 'spawn-helper');
+      if (fs.existsSync(helperPath)) {
+        entry.spawnHelper = fs.readFileSync(helperPath).toString('base64');
+      }
+      embeddedPtyBinaries[key] = entry;
+
+      if (!defaultPtyBase64 && target.platform === process.platform && target.arch === process.arch) {
+        defaultPtyBase64 = entry.ptyNode;
+      }
+      console.log(`[PTY] 已嵌入平台架构原生支持: ${key} (pty.node: ${(ptyBuf.length / 1024).toFixed(2)} KB)`);
+    } else {
+      console.warn(`[PTY] 提示: 未在 ${target.dir} 找到 pty.node`);
+    }
+  }
+
+  // 兜底：如果没匹配到当前机器架构，取找到的第一个作为 defaultPtyBase64
+  if (!defaultPtyBase64 && Object.keys(embeddedPtyBinaries).length > 0) {
+    defaultPtyBase64 = Object.values(embeddedPtyBinaries)[0].ptyNode;
   }
 
   // 3. 打包后端及内嵌资产为一个单 JS 文件
@@ -59,7 +88,8 @@ async function bundleAllInOne() {
     define: {
       '__WEBTERM_EMBEDDED_INDEX_HTML__': JSON.stringify(indexHtmlContent),
       '__WEBTERM_EMBEDDED_WEBTERM_JS__': JSON.stringify(webtermJsContent),
-      '__WEBTERM_EMBEDDED_PTY_NODE_BASE64__': JSON.stringify(ptyNodeBase64)
+      '__WEBTERM_EMBEDDED_PTY_BINARIES__': JSON.stringify(embeddedPtyBinaries),
+      '__WEBTERM_EMBEDDED_PTY_NODE_BASE64__': JSON.stringify(defaultPtyBase64)
     },
     minify: false, // 保持代码可读可调试
     sourcemap: false

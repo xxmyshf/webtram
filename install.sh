@@ -47,15 +47,30 @@ cd "$TARGET_DIR"
 BUNDLE_FILE="webterm.cjs"
 REPO_RAW_URL="https://raw.githubusercontent.com/xxmyshf/webtram/master/webterm.cjs"
 
+# 处理参数及更新标志
+ARGS=()
+FORCE_UPDATE="${WEBTERM_UPDATE:-0}"
+for arg in "$@"; do
+    if [ "$arg" = "--update" ] || [ "$arg" = "-u" ]; then
+        FORCE_UPDATE=1
+    else
+        ARGS+=("$arg")
+    fi
+done
+
 echo -e "\n${BOLD}[2/3] 准备一体化单文件服务程序...${NC}"
-if [ -f "$BUNDLE_FILE" ]; then
-    echo -e "${GREEN}✅ 检测到本地已存在 ${BUNDLE_FILE}，直接启动！${NC}"
+if [ -f "$BUNDLE_FILE" ] && [ -s "$BUNDLE_FILE" ] && [ "$FORCE_UPDATE" != "1" ]; then
+    echo -e "${GREEN}✅ 检测到本地已存在 ${BUNDLE_FILE}，直接启动！(如需更新可追加 --update 参数)${NC}"
 else
-    echo -e "${CYAN}⬇️ 正在从 GitHub 下载最新版一体化单文件 ${BUNDLE_FILE} ...${NC}"
+    if [ "$FORCE_UPDATE" = "1" ]; then
+        echo -e "${CYAN}🔄 正在从 GitHub 获取最新版一体化单文件 ${BUNDLE_FILE} ...${NC}"
+    else
+        echo -e "${CYAN}⬇️ 正在从 GitHub 下载最新版一体化单文件 ${BUNDLE_FILE} ...${NC}"
+    fi
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$REPO_RAW_URL" -o "$BUNDLE_FILE"
+        curl -fsSL "$REPO_RAW_URL" -o "${BUNDLE_FILE}.tmp" && mv -f "${BUNDLE_FILE}.tmp" "$BUNDLE_FILE"
     elif command -v wget >/dev/null 2>&1; then
-        wget -q "$REPO_RAW_URL" -O "$BUNDLE_FILE"
+        wget -q "$REPO_RAW_URL" -O "${BUNDLE_FILE}.tmp" && mv -f "${BUNDLE_FILE}.tmp" "$BUNDLE_FILE"
     else
         echo -e "${RED}❌ 错误: 缺少 curl 或 wget 工具，无法自动下载。${NC}"
         exit 1
@@ -67,10 +82,10 @@ fi
 echo -e "\n${BOLD}[3/3] 启动 Cyberpunk WebTerm 终端服务...${NC}"
 echo -e "${GREEN}💡 运行提示:${NC}"
 echo -e "   - 默认端口: ${CYAN}13399${NC} (可通过 --port 参数或环境变量 PORT 修改)"
-echo -e "   - 默认访问密码: ${CYAN}12345678${NC} (可通过 -P/--password 或 --hash 指定，或在界面右上角锁形图标弹窗随时修改)
-   - 命令行参数支持: ${CYAN}--port <端口> -P <密码> --hash <哈希> --help${NC}"
+echo -e "   - 默认访问密码: ${CYAN}12345678${NC} (可通过 -P/--password 或 --hash 指定，或在界面右上角锁形图标弹窗随时修改)"
+echo -e "   - 命令行参数支持: ${CYAN}--port <端口> -P <密码> --hash <哈希> --update --help${NC}"
 echo -e "   - 首次启动会自动在当前目录生成 ${CYAN}.env${NC}、${CYAN}certs/${NC} 与 ${CYAN}dist/${NC} 目录"
 echo -e "=================================================="
 
-# 启动服务并透传所有命令行参数 (如 --port 8080)
-exec node "$BUNDLE_FILE" "$@"
+# 启动服务并透传命令行参数 (如 --port 8080)
+exec node "$BUNDLE_FILE" "${ARGS[@]}"

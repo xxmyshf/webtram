@@ -29,13 +29,21 @@ MAX_HISTORY_LINES=2000
 SESSION_TIMEOUT_MINUTES=30
 `;
 
+export interface EmbeddedBinaryEntry {
+  ptyNode: string;
+  spawnHelper?: string;
+}
+
 declare const __WEBTERM_EMBEDDED_INDEX_HTML__: string;
 declare const __WEBTERM_EMBEDDED_WEBTERM_JS__: string;
+declare const __WEBTERM_EMBEDDED_PTY_BINARIES__: Record<string, EmbeddedBinaryEntry>;
 declare const __WEBTERM_EMBEDDED_PTY_NODE_BASE64__: string;
 
 // 这些常量在构建一体化单文件时会被 esbuild define 注入实际内容
 export const EMBEDDED_INDEX_HTML = typeof __WEBTERM_EMBEDDED_INDEX_HTML__ !== 'undefined' ? __WEBTERM_EMBEDDED_INDEX_HTML__ : '';
 export const EMBEDDED_WEBTERM_JS = typeof __WEBTERM_EMBEDDED_WEBTERM_JS__ !== 'undefined' ? __WEBTERM_EMBEDDED_WEBTERM_JS__ : '';
+export const EMBEDDED_PTY_BINARIES: Record<string, EmbeddedBinaryEntry> =
+  typeof __WEBTERM_EMBEDDED_PTY_BINARIES__ !== 'undefined' ? __WEBTERM_EMBEDDED_PTY_BINARIES__ : {};
 export const EMBEDDED_PTY_NODE_BASE64 = typeof __WEBTERM_EMBEDDED_PTY_NODE_BASE64__ !== 'undefined' ? __WEBTERM_EMBEDDED_PTY_NODE_BASE64__ : '';
 
 /**
@@ -106,25 +114,74 @@ export function ensureRuntimeEnvironment(rootDir = process.cwd(), initialPasswor
 
 /**
  * 确保原生 PTY 二进制可用 (放置在当前执行环境目录下的 build/Release/pty.node 供 node-pty 自动查找)
+ * 支持识别当前操作系统平台与架构 (linux-x64, linux-arm64, darwin-arm64, darwin-x64 等)
+ * 若发现本地文件与当前架构二进制不一致，自动覆写修复 (自愈)
  */
 export function ensureNativePtyBinary(): string | null {
-  if (EMBEDDED_PTY_NODE_BASE64) {
-    const baseDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
-    const releaseDir = path.resolve(baseDir, 'build/Release');
-    const targetFile = path.resolve(releaseDir, 'pty.node');
+  const currentPlatform = process.platform;
+  const rawArch = process.arch;
+  // 标准化架构标识 (aarch64 -> arm64, x86_64/amd64 -> x64)
+  const currentArch = (rawArch === 'aarch64' || rawArch === 'arm64') ? 'arm64' : (rawArch === 'x64' || rawArch === 'amd64') ? 'x64' : rawArch;
+  const platformArchKey = `${currentPlatform}-${currentArch}`;
 
-    if (!fs.existsSync(targetFile)) {
+  const entry: EmbeddedBinaryEntry | undefined = EMBEDDED_PTY_BINARIES[platformArchKey];
+  const ptyNodeBase64 = entry?.ptyNode || EMBEDDED_PTY_NODE_BASE64;
+
+  if (!ptyNodeBase64) {
+    return null;
+  }
+
+  const baseDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+  const releaseDir = path.resolve(baseDir, 'build/Release');
+  const targetFile = path.resolve(releaseDir, 'pty.node');
+
+  try {
+    const expectedBuf = Buffer.from(ptyNodeBase64, 'base64');
+    let needWrite = true;
+
+    if (fs.existsSync(targetFile)) {
       try {
-        fs.mkdirSync(releaseDir, { recursive: true });
-        const buf = Buffer.from(EMBEDDED_PTY_NODE_BASE64, 'base64');
-        fs.writeFileSync(targetFile, buf);
-        fs.chmodSync(targetFile, 0o755);
-      } catch (err) {
-        console.warn('[PTY] 释放内嵌原生模块失败:', err);
-        return null;
+        const existingBuf = fs.readFileSync(targetFile);
+        if (existingBuf.equals(expectedBuf)) {
+          needWrite = false;
+        } else {
+          console.warn(`[PTY] 检测到现有 ${targetFile} 与当前运行架构(${platformArchKey})原生库不匹配，正在自动重新解压自愈...`);
+        }
+      } catch {
+        needWrite = true;
       }
     }
+
+    if (needWrite) {
+      fs.mkdirSync(releaseDir, { recursive: true });
+      fs.writeFileSync(targetFile, expectedBuf);
+      fs.chmodSync(targetFile, 0o755);
+      console.log(`[PTY] 已释放适配架构 [${platformArchKey}] 的原生模块至: ${targetFile}`);
+    }
+
+    // 如果包含 spawn-helper (如 macOS)，也确保释放
+    if (entry?.spawnHelper) {
+      const helperFile = path.resolve(releaseDir, 'spawn-helper');
+      const helperBuf = Buffer.from(entry.spawnHelper, 'base64');
+      let needWriteHelper = true;
+      if (fs.existsSync(helperFile)) {
+        try {
+          const existingHelper = fs.readFileSync(helperFile);
+          if (existingHelper.equals(helperBuf)) {
+            needWriteHelper = false;
+          }
+        } catch {}
+      }
+      if (needWriteHelper) {
+        fs.writeFileSync(helperFile, helperBuf);
+        fs.chmodSync(helperFile, 0o755);
+        console.log(`[PTY] 已释放 spawn-helper 至: ${helperFile}`);
+      }
+    }
+
     return targetFile;
+  } catch (err) {
+    console.warn('[PTY] 释放内嵌原生模块失败:', err);
+    return null;
   }
-  return null;
 }
