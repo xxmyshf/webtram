@@ -75,11 +75,18 @@ export class AuthModal {
     document.body.appendChild(this.container);
   }
 
-  public show(): void {
+  public show(reset = true): void {
     this.container.classList.remove('hidden');
-    this.inputEl.value = '';
-    this.errorMsgEl.textContent = '';
-    setTimeout(() => this.inputEl.focus(), 100);
+    if (reset) {
+      this.inputEl.value = '';
+      this.errorMsgEl.textContent = '';
+    }
+    setTimeout(() => {
+      this.inputEl.focus();
+      if (!reset && this.inputEl.value) {
+        this.inputEl.select();
+      }
+    }, 100);
   }
 
   public hide(): void {
@@ -113,6 +120,8 @@ export class AuthModal {
         this.hide();
       } else {
         this.showError('密码错误，请重新输入');
+        this.inputEl.focus();
+        this.inputEl.select();
       }
     } catch (err: any) {
       this.showError(err.message || '网络连接失败');

@@ -16,7 +16,7 @@ async function testFeatures() {
   const baseUrl = 'https://127.0.0.1:13399';
   const wsUrl = 'wss://127.0.0.1:13399/ws';
   const currentHash = process.env.TERMINAL_PASSWORD_HASH
-    || (process.env.TERMINAL_PASSWORD ? sha256(process.env.TERMINAL_PASSWORD) : '0964b6086fe38dbe6162a3953124327d9d52ce4816952c620694126fed33aaa6');
+    || (process.env.TERMINAL_PASSWORD ? sha256(process.env.TERMINAL_PASSWORD) : 'ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f');
 
   // 1. Test SHA-256 Encrypted Login
   console.log('1. Testing SHA-256 frontend encrypted auth verification...');

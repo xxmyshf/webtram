@@ -14,7 +14,7 @@ ENABLE_HTTPS=true
 
 # 终端鉴权密码的 SHA-256 哈希值 (默认密码: 12345678)
 # 前端输入密码后在客户端进行 SHA-256 散列，服务端永不存储明文
-TERMINAL_PASSWORD_HASH=0964b6086f4cb7e39d73fc144f8396c21eef00c9eaefd628eb9265f2425cf8c6
+TERMINAL_PASSWORD_HASH=ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f
 
 # 语音识别服务 API (默认为内部代理 /api/asr)
 ASR_API_URL=/api/asr

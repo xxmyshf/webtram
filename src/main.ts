@@ -156,6 +156,7 @@ class WebTermApp {
           sessionStorage.setItem('webterm_pwd', hash);
           resolve(true);
         } else {
+          this.cachedPassword = '';
           sessionStorage.removeItem('webterm_pwd');
           resolve(false);
         }
@@ -234,12 +235,31 @@ class WebTermApp {
 
           case 'auth_fail': {
             this.isConnecting = false;
+            this.cachedPassword = '';
+            sessionStorage.removeItem('webterm_pwd');
+            if (this.reconnectTimer) {
+              clearTimeout(this.reconnectTimer);
+              this.reconnectTimer = null;
+            }
             this.statusBar.setConnectionState('offline');
-            this.authModal.show();
-            this.authModal.showError(msg.error || '认证失败');
-            onAuthResult?.(false);
+
+            if (onAuthResult) {
+              onAuthResult(false);
+            } else {
+              this.authModal.show(true);
+              this.authModal.showError(msg.error || '认证失败，请重新输入密码');
+            }
+
             if (this.ws) {
-              this.ws.close();
+              const oldWs = this.ws;
+              this.ws = null;
+              try {
+                oldWs.onopen = null;
+                oldWs.onmessage = null;
+                oldWs.onclose = null;
+                oldWs.onerror = null;
+                oldWs.close();
+              } catch {}
             }
             break;
           }
@@ -311,6 +331,10 @@ class WebTermApp {
   }
 
   private reconnect(): void {
+    if (!this.cachedPassword) {
+      this.authModal.show();
+      return;
+    }
     if (this.ws) {
       try {
         this.ws.close();
