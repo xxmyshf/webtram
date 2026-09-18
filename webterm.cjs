@@ -43422,6 +43422,11 @@ var PtyManager = class {
     this.sessions.delete(sessionId);
     console.log(`[PtyManager] Destroyed session: ${sessionId}`);
   }
+  destroyAllSessions() {
+    for (const id of Array.from(this.sessions.keys())) {
+      this.destroySession(id);
+    }
+  }
   getSession(sessionId) {
     return this.sessions.get(sessionId);
   }
@@ -43503,9 +43508,9 @@ TERMINAL_PASSWORD_HASH=${newHash}
 
 // server/websocket-server.ts
 function setupWebSocketServer(httpServer, ptyManager2) {
-  const wss = new import_websocket_server.default({ server: httpServer, path: "/ws" });
+  const wss2 = new import_websocket_server.default({ server: httpServer, path: "/ws" });
   console.log(`[WebSocket] Server initialized on /ws (Auth required)`);
-  wss.on("connection", (ws, req) => {
+  wss2.on("connection", (ws, req) => {
     const ip = req.socket.remoteAddress || "unknown";
     console.log(`[WebSocket] New incoming connection from ${ip}`);
     const ctx = {
@@ -43596,7 +43601,7 @@ function setupWebSocketServer(httpServer, ptyManager2) {
       }
     });
   });
-  return wss;
+  return wss2;
 }
 
 // server/asr-service.ts
@@ -43887,7 +43892,18 @@ app.use(import_express2.default.raw({ type: ["audio/*", "application/octet-strea
 app.use(import_express2.default.json());
 app.use(import_express2.default.urlencoded({ extended: true }));
 var ptyManager = new PtyManager();
-setupWebSocketServer(server, ptyManager);
+var openSockets = /* @__PURE__ */ new Set();
+server.on("connection", (socket) => {
+  openSockets.add(socket);
+  socket.on("close", () => openSockets.delete(socket));
+});
+if (isHttpsActive) {
+  server.on("secureConnection", (socket) => {
+    openSockets.add(socket);
+    socket.on("close", () => openSockets.delete(socket));
+  });
+}
+var wss = setupWebSocketServer(server, ptyManager);
 app.use("/api/asr", asrRouter);
 app.get("/api/status", (_req, res) => {
   res.json({
@@ -43943,10 +43959,48 @@ app.use((req, res, next) => {
     }
   });
 });
+var isShuttingDown = false;
 function shutdown() {
+  if (isShuttingDown) {
+    console.log("[Server] Force exiting immediately...");
+    process.exit(0);
+  }
+  isShuttingDown = true;
   console.log("[Server] Shutting down gracefully...");
+  const forceTimer = setTimeout(() => {
+    console.log("[Server] Shutdown timeout reached. Exiting now.");
+    process.exit(0);
+  }, 800);
+  forceTimer.unref();
+  try {
+    ptyManager.destroyAllSessions();
+  } catch (err) {
+    console.error("[Server] Error destroying PTY sessions:", err);
+  }
+  try {
+    for (const client of wss.clients) {
+      try {
+        client.terminate();
+      } catch {
+      }
+    }
+    wss.close();
+  } catch (err) {
+    console.error("[Server] Error closing WebSocket server:", err);
+  }
+  for (const socket of openSockets) {
+    try {
+      socket.destroy();
+    } catch {
+    }
+  }
+  openSockets.clear();
+  if (typeof server.closeAllConnections === "function") {
+    server.closeAllConnections();
+  }
   server.close(() => {
     console.log("[Server] Server and WebSocket closed.");
+    clearTimeout(forceTimer);
     process.exit(0);
   });
 }

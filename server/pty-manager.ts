@@ -193,6 +193,12 @@ export class PtyManager {
     console.log(`[PtyManager] Destroyed session: ${sessionId}`);
   }
 
+  public destroyAllSessions(): void {
+    for (const id of Array.from(this.sessions.keys())) {
+      this.destroySession(id);
+    }
+  }
+
   public getSession(sessionId: string): TerminalSession | undefined {
     return this.sessions.get(sessionId);
   }

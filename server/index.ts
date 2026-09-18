@@ -93,8 +93,21 @@ app.use(express.urlencoded({ extended: true }));
 // PTY Session Manager
 const ptyManager = new PtyManager();
 
+// Track all active TCP sockets to allow fast, graceful shutdown
+const openSockets = new Set<import('net').Socket>();
+server.on('connection', (socket: import('net').Socket) => {
+  openSockets.add(socket);
+  socket.on('close', () => openSockets.delete(socket));
+});
+if (isHttpsActive) {
+  server.on('secureConnection', (socket: import('net').Socket) => {
+    openSockets.add(socket);
+    socket.on('close', () => openSockets.delete(socket));
+  });
+}
+
 // Setup WebSocket server
-setupWebSocketServer(server, ptyManager);
+const wss = setupWebSocketServer(server, ptyManager);
 
 // ASR Audio Routes
 app.use('/api/asr', asrRouter);
@@ -169,10 +182,58 @@ app.use((req, res, next) => {
 });
 
 // Graceful shutdown
+let isShuttingDown = false;
+
 function shutdown() {
+  if (isShuttingDown) {
+    console.log('[Server] Force exiting immediately...');
+    process.exit(0);
+  }
+  isShuttingDown = true;
   console.log('[Server] Shutting down gracefully...');
+
+  // Fallback hard exit after 800ms if any native handle blocks the event loop
+  const forceTimer = setTimeout(() => {
+    console.log('[Server] Shutdown timeout reached. Exiting now.');
+    process.exit(0);
+  }, 800);
+  forceTimer.unref();
+
+  // 1. Destroy all PTY child processes and clean timers
+  try {
+    ptyManager.destroyAllSessions();
+  } catch (err) {
+    console.error('[Server] Error destroying PTY sessions:', err);
+  }
+
+  // 2. Terminate all active WebSocket clients & close WSS
+  try {
+    for (const client of wss.clients) {
+      try {
+        client.terminate();
+      } catch {}
+    }
+    wss.close();
+  } catch (err) {
+    console.error('[Server] Error closing WebSocket server:', err);
+  }
+
+  // 3. Destroy all tracked open sockets (HTTP/HTTPS keep-alive)
+  for (const socket of openSockets) {
+    try {
+      socket.destroy();
+    } catch {}
+  }
+  openSockets.clear();
+
+  // 4. Close HTTP/HTTPS server
+  if (typeof (server as any).closeAllConnections === 'function') {
+    (server as any).closeAllConnections();
+  }
+
   server.close(() => {
     console.log('[Server] Server and WebSocket closed.');
+    clearTimeout(forceTimer);
     process.exit(0);
   });
 }
