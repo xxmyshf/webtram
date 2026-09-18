@@ -12,7 +12,7 @@ export class AuthModal {
   constructor(callbacks: AuthModalCallbacks) {
     this.callbacks = callbacks;
     this.container = document.createElement('div');
-    this.container.className = 'cyber-auth-overlay';
+    this.container.className = 'cyber-auth-overlay hidden';
     this.container.innerHTML = `
       <div class="auth-dialog-card">
         <div class="card-glitch-border"></div>

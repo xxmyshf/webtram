@@ -30,7 +30,7 @@ class WebTermApp {
 
   constructor() {
     this.sessionId = localStorage.getItem('webterm_session_id');
-    this.cachedPassword = sessionStorage.getItem('webterm_pwd') || '';
+    this.cachedPassword = localStorage.getItem('webterm_pwd') || sessionStorage.getItem('webterm_pwd') || '';
   }
 
   public init(): void {
@@ -101,6 +101,7 @@ class WebTermApp {
       onSuccess: async (newPwd) => {
         const hash = await hashPassword(newPwd);
         this.cachedPassword = hash;
+        localStorage.setItem('webterm_pwd', hash);
         sessionStorage.setItem('webterm_pwd', hash);
       }
     });
@@ -153,10 +154,12 @@ class WebTermApp {
     return new Promise((resolve) => {
       this.connectWebSocket((ok) => {
         if (ok) {
+          localStorage.setItem('webterm_pwd', hash);
           sessionStorage.setItem('webterm_pwd', hash);
           resolve(true);
         } else {
           this.cachedPassword = '';
+          localStorage.removeItem('webterm_pwd');
           sessionStorage.removeItem('webterm_pwd');
           resolve(false);
         }
@@ -223,6 +226,7 @@ class WebTermApp {
             localStorage.setItem('webterm_session_id', msg.sessionId);
             this.statusBar.setSessionId(msg.sessionId);
             this.statusBar.setConnectionState('online');
+            this.authModal.hide();
             // Only auto-focus on non-touch desktop to avoid popping up mobile OS keyboard
             const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
             if (!isTouch) {
@@ -236,6 +240,7 @@ class WebTermApp {
           case 'auth_fail': {
             this.isConnecting = false;
             this.cachedPassword = '';
+            localStorage.removeItem('webterm_pwd');
             sessionStorage.removeItem('webterm_pwd');
             if (this.reconnectTimer) {
               clearTimeout(this.reconnectTimer);
