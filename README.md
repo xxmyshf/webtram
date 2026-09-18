@@ -25,9 +25,13 @@
 curl -fsSL https://raw.githubusercontent.com/xxmyshf/webtram/master/install.sh | bash
 ```
 
-> 💡 **自定义端口启动**：
+> 💡 **自定义端口与访问密码启动**：
 > ```bash
-> curl -fsSL https://raw.githubusercontent.com/xxmyshf/webtram/master/install.sh | bash -s -- --port 8080
+> # 一键指定端口与自定义访问密码
+> curl -fsSL https://raw.githubusercontent.com/xxmyshf/webtram/master/install.sh | bash -s -- --port 8080 -P mypassword
+>
+> # 使用预计算的 SHA-256 哈希启动 (避免在 Shell 历史中留下明文)
+> curl -fsSL https://raw.githubusercontent.com/xxmyshf/webtram/master/install.sh | bash -s -- --hash <64位SHA-256哈希>
 > ```
 
 脚本将自动准备单文件服务并在当前目录生成配置文件及前端托管文件，随后启动带自签名 SSL/TLS 证书的终端服务。
@@ -153,13 +157,17 @@ MAX_HISTORY_LINES=2000
 
 - **运行服务**：
   ```bash
-  # 运行一体化单文件
+  # 默认端口 (13399) 和默认密码 (12345678) 启动
   node webterm.cjs
-  # 或通过源码直接启动
-  npm run server
-  # 支持命令行参数快速调整端口
-  node webterm.cjs --port 8080
-  node webterm.cjs -p 9000
+
+  # 指定自定义端口与访问密码 (首次运行自动写入 .env，已有环境自动同步更新)
+  node webterm.cjs --port 8080 -P mysecret123
+
+  # 使用预计算的 SHA-256 哈希启动 (推荐在自动化脚本中使用)
+  node webterm.cjs --hash ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f
+
+  # 查看全部支持参数
+  node webterm.cjs --help
   ```
 
 - **开发热重载模式**：

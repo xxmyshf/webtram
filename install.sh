@@ -67,7 +67,8 @@ fi
 echo -e "\n${BOLD}[3/3] 启动 Cyberpunk WebTerm 终端服务...${NC}"
 echo -e "${GREEN}💡 运行提示:${NC}"
 echo -e "   - 默认端口: ${CYAN}13399${NC} (可通过 --port 参数或环境变量 PORT 修改)"
-echo -e "   - 默认访问密码: ${CYAN}12345678${NC} (可在界面右上角锁形图标弹窗随时修改)"
+echo -e "   - 默认访问密码: ${CYAN}12345678${NC} (可通过 -P/--password 或 --hash 指定，或在界面右上角锁形图标弹窗随时修改)
+   - 命令行参数支持: ${CYAN}--port <端口> -P <密码> --hash <哈希> --help${NC}"
 echo -e "   - 首次启动会自动在当前目录生成 ${CYAN}.env${NC}、${CYAN}certs/${NC} 与 ${CYAN}dist/${NC} 目录"
 echo -e "=================================================="
 

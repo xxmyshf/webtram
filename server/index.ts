@@ -10,14 +10,22 @@ import { PtyManager } from './pty-manager.js';
 import { setupWebSocketServer } from './websocket-server.js';
 import { asrRouter } from './asr-service.js';
 import { ensureCertificates } from './cert-utils.js';
-import { getStoredPasswordHash } from './auth.js';
-
+import { parseCliArgs, printHelp } from './cli-args.js';
+import { getStoredPasswordHash, updatePassword, verifyPassword } from './auth.js';
 import { ensureRuntimeEnvironment, ensureNativePtyBinary } from './embedded-assets.js';
+
+// Parse command-line arguments (-p/--port, -P/--password, --hash, -h/--help)
+const cliArgs = parseCliArgs();
+
+if (cliArgs.help) {
+  printHelp();
+  process.exit(0);
+}
 
 const projectRoot = process.env.WEBTERM_ROOT || process.cwd();
 
-// Auto generate .env and dist/ static assets if missing
-ensureRuntimeEnvironment(projectRoot);
+// Auto generate .env and dist/ static assets if missing (passing initial password hash if specified)
+ensureRuntimeEnvironment(projectRoot, cliArgs.initialHash);
 ensureNativePtyBinary();
 
 // Load .env.local first (higher priority), then .env
@@ -27,32 +35,15 @@ if (fs.existsSync(localEnv)) {
 }
 dotenv.config({ path: path.resolve(projectRoot, '.env') });
 
-const app = express();
-
-// Parse port from command-line arguments: --port <N>, -p <N>, or --port=<N>
-function parsePortFromArgs(): number | null {
-  const args = process.argv.slice(2);
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--port' || arg === '-p') {
-      const next = args[i + 1];
-      if (next) {
-        const p = parseInt(next, 10);
-        if (!Number.isNaN(p) && p > 0 && p < 65536) return p;
-      }
-    } else {
-      const m = arg.match(/^--port=(\d+)$/);
-      if (m) {
-        const p = parseInt(m[1], 10);
-        if (p > 0 && p < 65536) return p;
-      }
-    }
-  }
-  return null;
+// If CLI or environment specified password/hash, override and persist to .env
+if (cliArgs.initialHash) {
+  updatePassword(cliArgs.initialHash);
+  console.log(`[Auth] 命令行指定初始访问凭据已生效 (SHA-256: ${cliArgs.initialHash.slice(0, 8)}...)`);
 }
 
-const cliPort = parsePortFromArgs();
-const PORT = cliPort ?? parseInt(process.env.PORT || '13399', 10);
+const app = express();
+
+const PORT = cliArgs.port ?? parseInt(process.env.PORT || '13399', 10);
 const HOST = '0.0.0.0';
 const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false';
 
@@ -120,8 +111,6 @@ app.get('/api/status', (_req, res) => {
     sessions: ptyManager.getAllSessionsInfo()
   });
 });
-
-import { verifyPassword, updatePassword } from './auth.js';
 
 // Password verification API
 app.post('/api/auth/verify', (req, res) => {

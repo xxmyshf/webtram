@@ -1,6 +1,7 @@
 import { ensureNativePtyBinary } from './embedded-assets.js';
 import type * as nodePtyType from 'node-pty';
 
+declare const require: any;
 let ptyInstance: typeof nodePtyType | null = null;
 
 export function getPty(): typeof nodePtyType {

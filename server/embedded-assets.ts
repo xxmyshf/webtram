@@ -44,15 +44,26 @@ export const EMBEDDED_PTY_NODE_BASE64 = typeof __WEBTERM_EMBEDDED_PTY_NODE_BASE6
  * 2. 自动生成 ./dist/ 静态托管文件（index.html 和 webterm.js，如果不存在）
  * 3. 自动解压/释放 pty.node（如果环境需要）
  */
-export function ensureRuntimeEnvironment(rootDir = process.cwd()): void {
+export function ensureRuntimeEnvironment(rootDir = process.cwd(), initialPasswordHash?: string | null): void {
   // 1. 检查并生成配置文件 .env
   const localEnvPath = path.resolve(rootDir, '.env.local');
   const envPath = path.resolve(rootDir, '.env');
   if (!fs.existsSync(localEnvPath) && !fs.existsSync(envPath)) {
     try {
-      fs.writeFileSync(envPath, DEFAULT_ENV_TEMPLATE, 'utf-8');
+      let template = DEFAULT_ENV_TEMPLATE;
+      if (initialPasswordHash) {
+        template = template.replace(
+          /^TERMINAL_PASSWORD_HASH=.*$/m,
+          `TERMINAL_PASSWORD_HASH=${initialPasswordHash}`
+        );
+      }
+      fs.writeFileSync(envPath, template, 'utf-8');
       console.log(`[Config] 首次运行，已在当前目录自动生成配置文件: ${envPath}`);
-      console.log(`[Config] 默认访问密码: 12345678 (可在界面右上角锁形图标弹窗随时修改)`);
+      if (initialPasswordHash) {
+        console.log(`[Config] 初始访问密码已配置 (哈希: ${initialPasswordHash.slice(0, 8)}...)`);
+      } else {
+        console.log(`[Config] 默认访问密码: 12345678 (可在界面右上角锁形图标弹窗随时修改)`);
+      }
     } catch (err) {
       console.warn(`[Config] 无法写入配置文件:`, err);
     }
