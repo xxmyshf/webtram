@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { PtyManager } from './pty-manager.js';
 
 import { verifyPassword } from './auth.js';
+import { FsManager } from './fs-manager.js';
 
 interface ClientContext {
   ws: WebSocket;
@@ -12,7 +13,11 @@ interface ClientContext {
   lastPing: number;
 }
 
-export function setupWebSocketServer(httpServer: HttpServer | HttpsServer, ptyManager: PtyManager): WebSocketServer {
+export function setupWebSocketServer(
+  httpServer: HttpServer | HttpsServer,
+  ptyManager: PtyManager,
+  fsManager: FsManager = new FsManager()
+): WebSocketServer {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
   console.log(`[WebSocket] Server initialized on /ws (Auth required)`);
@@ -95,6 +100,98 @@ export function setupWebSocketServer(httpServer: HttpServer | HttpsServer, ptyMa
             const { cols, rows } = payload;
             if (cols > 0 && rows > 0) {
               ptyManager.resize(ctx.sessionId, cols, rows);
+            }
+            break;
+          }
+
+          case 'fs_list': {
+            if (!ctx.authenticated) {
+              ws.send(JSON.stringify({ type: 'error', error: '未鉴权的会话', reqId: payload.reqId }));
+              return;
+            }
+            try {
+              const res = fsManager.listDirectory(payload.path, payload.showHidden ?? true);
+              ws.send(JSON.stringify({
+                type: 'fs_list_res',
+                reqId: payload.reqId,
+                ...res
+              }));
+            } catch (err: any) {
+              ws.send(JSON.stringify({
+                type: 'fs_list_res',
+                reqId: payload.reqId,
+                error: err.message || '读取目录失败'
+              }));
+            }
+            break;
+          }
+
+          case 'fs_read': {
+            if (!ctx.authenticated) {
+              ws.send(JSON.stringify({ type: 'error', error: '未鉴权的会话', reqId: payload.reqId }));
+              return;
+            }
+            try {
+              const res = fsManager.readFile(payload.path, payload.maxTextBytes);
+              ws.send(JSON.stringify({
+                type: 'fs_read_res',
+                reqId: payload.reqId,
+                ...res
+              }));
+            } catch (err: any) {
+              ws.send(JSON.stringify({
+                type: 'fs_read_res',
+                reqId: payload.reqId,
+                error: err.message || '读取文件失败'
+              }));
+            }
+            break;
+          }
+
+          case 'fs_action': {
+            if (!ctx.authenticated) {
+              ws.send(JSON.stringify({ type: 'error', error: '未鉴权的会话', reqId: payload.reqId }));
+              return;
+            }
+            const { action, params, reqId } = payload;
+            try {
+              let resultData: any = null;
+              switch (action) {
+                case 'create_file':
+                  resultData = fsManager.createFile(params.parentDir, params.name, params.content || '');
+                  break;
+                case 'create_dir':
+                  resultData = fsManager.createDirectory(params.parentDir, params.name);
+                  break;
+                case 'rename':
+                  resultData = fsManager.rename(params.oldPath, params.newName);
+                  break;
+                case 'delete':
+                  fsManager.delete(params.targetPath);
+                  resultData = true;
+                  break;
+                case 'write_file':
+                  fsManager.writeFile(params.path, params.content);
+                  resultData = true;
+                  break;
+                default:
+                  throw new Error(`未知的文件操作: ${action}`);
+              }
+              ws.send(JSON.stringify({
+                type: 'fs_action_res',
+                reqId,
+                action,
+                success: true,
+                data: resultData
+              }));
+            } catch (err: any) {
+              ws.send(JSON.stringify({
+                type: 'fs_action_res',
+                reqId,
+                action,
+                success: false,
+                error: err.message || '操作执行失败'
+              }));
             }
             break;
           }

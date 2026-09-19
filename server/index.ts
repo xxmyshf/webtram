@@ -13,6 +13,7 @@ import { ensureCertificates } from './cert-utils.js';
 import { parseCliArgs, printHelp } from './cli-args.js';
 import { getStoredPasswordHash, updatePassword, verifyPassword } from './auth.js';
 import { ensureRuntimeEnvironment, ensureNativePtyBinary } from './embedded-assets.js';
+import { FsManager } from './fs-manager.js';
 
 // Parse command-line arguments (-p/--port, -P/--password, --hash, -h/--help)
 const cliArgs = parseCliArgs();
@@ -97,11 +98,65 @@ if (isHttpsActive) {
   });
 }
 
+// Setup File System Manager
+const fsManager = new FsManager(projectRoot);
+
 // Setup WebSocket server
-const wss = setupWebSocketServer(server, ptyManager);
+const wss = setupWebSocketServer(server, ptyManager, fsManager);
 
 // ASR Audio Routes
 app.use('/api/asr', asrRouter);
+
+// File System Download & Raw Content Routes
+app.get('/api/fs/download', (req, res) => {
+  const { path: targetPath, pwd } = req.query;
+  if (!pwd || !verifyPassword(String(pwd))) {
+    return res.status(401).send('Unauthorized');
+  }
+  try {
+    const resolved = fsManager.resolvePath(String(targetPath));
+    if (!fs.existsSync(resolved) || fs.statSync(resolved).isDirectory()) {
+      return res.status(404).send('File not found');
+    }
+    res.download(resolved);
+  } catch (err: any) {
+    res.status(500).send(err.message || 'Download error');
+  }
+});
+
+app.get('/api/fs/raw', (req, res) => {
+  const { path: targetPath, pwd } = req.query;
+  if (!pwd || !verifyPassword(String(pwd))) {
+    return res.status(401).send('Unauthorized');
+  }
+  try {
+    const resolved = fsManager.resolvePath(String(targetPath));
+    if (!fs.existsSync(resolved) || fs.statSync(resolved).isDirectory()) {
+      return res.status(404).send('File not found');
+    }
+    res.sendFile(resolved);
+  } catch (err: any) {
+    res.status(500).send(err.message || 'File read error');
+  }
+});
+
+app.post('/api/fs/upload', (req, res) => {
+  const pwd = req.headers['x-webterm-pwd'] || req.query.pwd;
+  const targetPath = req.headers['x-webterm-path'] || req.query.path;
+  if (!pwd || !verifyPassword(String(pwd))) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  if (!targetPath) {
+    return res.status(400).json({ success: false, error: 'Target path required' });
+  }
+  try {
+    const resolved = fsManager.resolvePath(String(targetPath));
+    fsManager.writeFile(resolved, req.body);
+    res.json({ success: true, path: resolved });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Upload error' });
+  }
+});
 
 // Health & session info API
 app.get('/api/status', (_req, res) => {

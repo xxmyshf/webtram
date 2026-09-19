@@ -8,6 +8,7 @@ export interface StatusBarCallbacks {
   onToggleNativeIME: () => void;
   onGetFontSize: () => number;
   onSetFontSize: (size: number) => number;
+  onSwitchView?: (view: 'terminal' | 'files') => void;
 }
 
 export class StatusBar {
@@ -21,6 +22,7 @@ export class StatusBar {
   private fontSlider: HTMLInputElement;
   private fontChips: NodeListOf<HTMLButtonElement>;
   private callbacks: StatusBarCallbacks;
+  private activeView: 'terminal' | 'files' = 'terminal';
 
   constructor(callbacks: StatusBarCallbacks) {
     this.callbacks = callbacks;
@@ -36,6 +38,18 @@ export class StatusBar {
             <span class="status-sep">/</span>
             <span class="status-ping">-- ms</span>
           </span>
+        </div>
+
+        <!-- View Mode Switcher -->
+        <div class="cyber-view-switcher">
+          <button type="button" class="view-tab-btn active" data-view="terminal" title="切换到终端视图">
+            <span class="tab-icon">📟</span>
+            <span class="tab-label">终端</span>
+          </button>
+          <button type="button" class="view-tab-btn" data-view="files" title="切换到文件管理器视图">
+            <span class="tab-icon">📁</span>
+            <span class="tab-label">文件</span>
+          </button>
         </div>
       </div>
 
@@ -164,6 +178,28 @@ export class StatusBar {
         document.documentElement.requestFullscreen().catch(() => {});
       } else {
         document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // View tab buttons
+    this.container.querySelectorAll<HTMLButtonElement>('.view-tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetView = btn.getAttribute('data-view') as 'terminal' | 'files';
+        if (targetView && targetView !== this.activeView) {
+          this.setActiveView(targetView);
+          this.callbacks.onSwitchView?.(targetView);
+        }
+      });
+    });
+  }
+
+  public setActiveView(view: 'terminal' | 'files'): void {
+    this.activeView = view;
+    this.container.querySelectorAll<HTMLButtonElement>('.view-tab-btn').forEach((btn) => {
+      if (btn.getAttribute('data-view') === view) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
       }
     });
   }

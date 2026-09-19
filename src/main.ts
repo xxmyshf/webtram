@@ -6,6 +6,7 @@ import { PasswordChangeModal } from './components/PasswordChangeModal.js';
 import { ASRConfigModal } from './components/ASRConfigModal.js';
 import { NativeIMEBridge } from './components/NativeIMEBridge.js';
 import { SpeechManager } from './components/SpeechManager.js';
+import { FileManager } from './components/FileManager/FileManager.js';
 import { hashPassword } from './utils/crypto.js';
 import { getTerminalConfig } from './config.js';
 import './style.css';
@@ -19,6 +20,9 @@ class WebTermApp {
   private asrConfigModal!: ASRConfigModal;
   private nativeIMEBridge!: NativeIMEBridge;
   private speechManager!: SpeechManager;
+  private fileManager!: FileManager;
+  private termWrapper!: HTMLElement;
+  private currentView: 'terminal' | 'files' = 'terminal';
 
   private ws: WebSocket | null = null;
   private sessionId: string | null = null;
@@ -65,22 +69,36 @@ class WebTermApp {
       onOpenASRModal: () => this.asrConfigModal.show(),
       onToggleNativeIME: () => this.nativeIMEBridge.toggle(),
       onGetFontSize: () => this.terminalManager.getFontSize(),
-      onSetFontSize: (size) => this.terminalManager.setFontSize(size)
+      onSetFontSize: (size) => this.terminalManager.setFontSize(size),
+      onSwitchView: (view) => this.switchView(view)
     });
     appEl.appendChild(this.statusBar.getElement());
 
     // 3. Terminal Container (MIDDLE)
-    const termWrapper = document.createElement('div');
-    termWrapper.className = 'terminal-wrapper';
-    appEl.appendChild(termWrapper);
+    this.termWrapper = document.createElement('div');
+    this.termWrapper.className = 'terminal-wrapper';
+    appEl.appendChild(this.termWrapper);
 
     this.terminalManager = new TerminalManager({
-      container: termWrapper,
+      container: this.termWrapper,
       onInput: (data) => this.sendInput(data),
       onResize: (cols, rows) => this.sendResize(cols, rows)
     });
 
-    // 4. Virtual Keyboard (BOTTOM - in flex flow so it never overlaps terminal)
+    // 4. File Manager (Coexists with terminal, toggled by view switch)
+    this.fileManager = new FileManager({
+      sendWsMessage: (msg) => this.sendWsJson(msg),
+      getAuthPassword: () => this.cachedPassword,
+      onOpenInTerminal: (dirPath) => {
+        this.sendInput(`cd "${dirPath}"\n`);
+        this.switchView('terminal');
+      },
+      onSwitchToTerminal: () => this.switchView('terminal')
+    });
+    appEl.appendChild(this.fileManager.getElement());
+    this.fileManager.hide();
+
+    // 5. Virtual Keyboard (BOTTOM - in flex flow so it never overlaps terminal)
     this.virtualKeyboard = new VirtualKeyboard({
       onInput: (data) => this.sendInput(data),
       onResizeTrigger: () => this.terminalManager.fit(),
@@ -90,7 +108,7 @@ class WebTermApp {
     });
     appEl.appendChild(this.virtualKeyboard.getElement());
 
-    // 5. Native IME Bridge (hides virtual keyboard when opened, restores when closed)
+    // 6. Native IME Bridge (hides virtual keyboard when opened, restores when closed)
     this.nativeIMEBridge = new NativeIMEBridge({
       onInput: (data) => this.sendInput(data),
       onActivate: () => {
@@ -103,7 +121,7 @@ class WebTermApp {
       }
     });
 
-    // 6. Modals
+    // 7. Modals
     this.authModal = new AuthModal({
       onSubmit: async (pwd) => {
         return this.tryAuthenticate(pwd);
@@ -120,6 +138,14 @@ class WebTermApp {
     });
 
     this.asrConfigModal = new ASRConfigModal(this.speechManager);
+
+    // Global hotkey: Alt+F or Alt+E to toggle between Terminal and Files
+    window.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'f' || e.key === 'F' || e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        this.switchView(this.currentView === 'terminal' ? 'files' : 'terminal');
+      }
+    });
 
     // Setup postMessage communication with parent host (WebTerm Manager)
     window.addEventListener('message', (event) => {
@@ -278,6 +304,11 @@ class WebTermApp {
 
         const msg = JSON.parse(rawData);
 
+        // Forward file system messages to fileManager
+        if (this.fileManager && this.fileManager.handleWsMessage(msg)) {
+          return;
+        }
+
         switch (msg.type) {
           case 'auth_ok': {
             this.isConnecting = false;
@@ -287,6 +318,11 @@ class WebTermApp {
             this.statusBar.setSessionId(msg.sessionId);
             this.statusBar.setConnectionState('online');
             this.authModal.hide();
+
+            if (this.currentView === 'files') {
+              this.fileManager.refreshCurrentDir();
+            }
+
             // Only auto-focus on non-touch desktop to avoid popping up mobile OS keyboard
             const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
             if (!isTouch) {
@@ -439,6 +475,29 @@ class WebTermApp {
       this.reconnectTimer = null;
       this.connectWebSocket();
     }, 3000);
+  }
+
+  public switchView(view: 'terminal' | 'files'): void {
+    if (this.currentView === view) return;
+    this.currentView = view;
+    this.statusBar.setActiveView(view);
+
+    if (view === 'files') {
+      this.termWrapper.style.display = 'none';
+      this.virtualKeyboard.hide();
+      this.fileManager.show();
+    } else {
+      this.fileManager.hide();
+      this.termWrapper.style.display = 'flex';
+      this.virtualKeyboard.show();
+      setTimeout(() => this.terminalManager.fit(), 50);
+    }
+  }
+
+  public sendWsJson(msg: any): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
+    }
   }
 
   private reconnect(): void {
