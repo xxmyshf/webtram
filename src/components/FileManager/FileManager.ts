@@ -136,6 +136,7 @@ export class FileManager {
       onFolderClick: (folder) => this.handleColumnFolderClick(0, folder),
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, 0),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
+      onBatchSelect: (items, checked) => this.handleBatchSelect(items, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => this.handleColumnNavigateUp(0, parent)
@@ -146,6 +147,7 @@ export class FileManager {
       onFolderClick: (folder) => this.handleColumnFolderClick(1, folder),
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, 1),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
+      onBatchSelect: (items, checked) => this.handleBatchSelect(items, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => this.handleColumnNavigateUp(1, parent)
@@ -156,6 +158,7 @@ export class FileManager {
       onFolderClick: (folder) => this.handleColumnFolderClick(2, folder),
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, 2),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
+      onBatchSelect: (items, checked) => this.handleBatchSelect(items, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => this.handleColumnNavigateUp(2, parent)
@@ -179,6 +182,7 @@ export class FileManager {
       },
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, -1),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
+      onBatchSelect: (items, checked) => this.handleBatchSelect(items, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => {
@@ -216,6 +220,16 @@ export class FileManager {
     this.container.appendChild(this.breadcrumbBar);
     this.container.appendChild(this.threeColumnContainer);
     this.container.appendChild(this.oneColumnContainer);
+
+    // Global tracking of Ctrl / Shift keys
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Control') (window as any).__webterm_ctrl_down = true;
+      if (e.key === 'Shift') (window as any).__webterm_shift_down = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Control') (window as any).__webterm_ctrl_down = false;
+      if (e.key === 'Shift') (window as any).__webterm_shift_down = false;
+    });
 
     // Global keyboard shortcuts for copy/paste inside FileManager
     window.addEventListener('keydown', (e) => {
@@ -593,6 +607,27 @@ export class FileManager {
     } else {
       this.selectedItems.delete(item.path);
     }
+
+    const pathsSet = new Set(this.selectedItems.keys());
+    this.col0.setMultiSelectedPaths(pathsSet);
+    this.col1.setMultiSelectedPaths(pathsSet);
+    this.col2.setMultiSelectedPaths(pathsSet);
+    this.singleCol.setMultiSelectedPaths(pathsSet);
+
+    this.updateToolbarContext();
+  }
+
+  /**
+   * 批量选中/反选（支持 Shift 连续范围选择）
+   */
+  private handleBatchSelect(items: FileEntry[], checked: boolean): void {
+    items.forEach((item) => {
+      if (checked) {
+        this.selectedItems.set(item.path, item);
+      } else {
+        this.selectedItems.delete(item.path);
+      }
+    });
 
     const pathsSet = new Set(this.selectedItems.keys());
     this.col0.setMultiSelectedPaths(pathsSet);

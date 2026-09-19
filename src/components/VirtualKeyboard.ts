@@ -845,6 +845,7 @@ export class VirtualKeyboard {
   private toggleCtrlLatch(force?: boolean): void {
     this.triggerHaptic(20);
     this.ctrlLatched = force !== undefined ? force : !this.ctrlLatched;
+    (window as any).__webterm_ctrl_latched = this.ctrlLatched;
 
     this.container.querySelectorAll('.key-ctrl').forEach((ctrlBtn) => {
       ctrlBtn.classList.toggle('latched', this.ctrlLatched);
@@ -866,6 +867,7 @@ export class VirtualKeyboard {
     } else {
       this.isShiftActive = !this.isShiftActive;
     }
+    (window as any).__webterm_shift_active = this.isShiftActive || this.isCapsLock;
 
     this.updateMainRows();
   }

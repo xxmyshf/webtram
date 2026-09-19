@@ -4,6 +4,7 @@ export interface DirectoryColumnCallbacks {
   onFolderClick: (folder: FileEntry) => void;
   onFileClick: (file: FileEntry, isAlreadySelected: boolean) => void;
   onCheckboxToggle: (item: FileEntry, checked: boolean) => void;
+  onBatchSelect?: (items: FileEntry[], checked: boolean) => void;
   onInlineRename: (item: FileEntry, newName: string) => Promise<boolean>;
   onDropFiles: (files: FileList, targetDir: string) => void;
   onNavigateUp?: (parentPath: string) => void;
@@ -21,6 +22,7 @@ export class DirectoryColumn {
   private filterQuery = '';
   private isEditingPath: string | null = null;
   private showParentDirRow = false;
+  private lastClickedItem: FileEntry | null = null;
 
   constructor(callbacks: DirectoryColumnCallbacks, extraClassName = '') {
     this.callbacks = callbacks;
@@ -47,6 +49,9 @@ export class DirectoryColumn {
 
     this.currentData = data;
     this.isEditingPath = null;
+    if (data?.currentPath !== prevPath) {
+      this.lastClickedItem = null;
+    }
     this.render();
 
     if (data && prevPath === data.currentPath && prevScrollTop > 0) {
@@ -97,6 +102,41 @@ export class DirectoryColumn {
     }
   }
 
+  public getFilteredEntries(): FileEntry[] {
+    if (!this.currentData) return [];
+    return this.currentData.entries.filter((e) => {
+      if (!this.filterQuery) return true;
+      return e.name.toLowerCase().includes(this.filterQuery.toLowerCase());
+    });
+  }
+
+  private handleRangeSelect(targetItem: FileEntry): void {
+    if (!this.currentData) return;
+
+    const filtered = this.getFilteredEntries();
+    const targetIdx = filtered.findIndex((e) => e.path === targetItem.path);
+    if (targetIdx === -1) return;
+
+    let startIdx = targetIdx;
+    if (this.lastClickedItem) {
+      const foundIdx = filtered.findIndex((e) => e.path === this.lastClickedItem!.path);
+      if (foundIdx !== -1) {
+        startIdx = foundIdx;
+      }
+    }
+
+    const minIdx = Math.min(startIdx, targetIdx);
+    const maxIdx = Math.max(startIdx, targetIdx);
+    const rangeItems = filtered.slice(minIdx, maxIdx + 1);
+
+    if (this.callbacks.onBatchSelect) {
+      this.callbacks.onBatchSelect(rangeItems, true);
+    } else {
+      rangeItems.forEach((item) => this.callbacks.onCheckboxToggle(item, true));
+    }
+    this.lastClickedItem = targetItem;
+  }
+
   private render(): void {
     if (!this.currentData) {
       this.container.innerHTML = `
@@ -113,10 +153,7 @@ export class DirectoryColumn {
     const folderName = isHome ? '~' : (currentPath === '/' ? '/' : currentPath.split('/').pop() || currentPath);
     const displayTitle = isHome ? `~ (${currentPath})` : currentPath;
 
-    const filtered = entries.filter((e) => {
-      if (!this.filterQuery) return true;
-      return e.name.toLowerCase().includes(this.filterQuery.toLowerCase());
-    });
+    const filtered = this.getFilteredEntries();
 
     const shouldShowParentRow = this.showParentDirRow && Boolean(parentPath);
 
@@ -317,19 +354,46 @@ export class DirectoryColumn {
 
       // Checkbox click
       const checkbox = row.querySelector('.row-checkbox');
-      checkbox?.addEventListener('click', (e) => {
+      checkbox?.addEventListener('click', (e: Event) => {
         e.stopPropagation();
+        const me = e as MouseEvent;
+        const isShift = me.shiftKey || Boolean((window as any).__webterm_shift_active) || Boolean((window as any).__webterm_shift_down);
+        if (isShift) {
+          this.handleRangeSelect(item);
+          return;
+        }
+
         const willCheck = !this.multiSelectedPaths.has(item.path);
         this.callbacks.onCheckboxToggle(item, willCheck);
+        this.lastClickedItem = item;
       });
 
       // Row body click
-      row.addEventListener('click', (e) => {
+      row.addEventListener('click', (e: MouseEvent) => {
         // If clicking checkbox or rename input, ignore
         if ((e.target as HTMLElement).closest('.row-checkbox') || (e.target as HTMLElement).closest('.inline-rename-input')) {
           return;
         }
 
+        const isCtrl = e.ctrlKey || e.metaKey || Boolean((window as any).__webterm_ctrl_latched) || Boolean((window as any).__webterm_ctrl_down);
+        const isShift = e.shiftKey || Boolean((window as any).__webterm_shift_active) || Boolean((window as any).__webterm_shift_down);
+
+        if (isShift) {
+          e.preventDefault();
+          this.handleRangeSelect(item);
+          return;
+        }
+
+        if (isCtrl) {
+          e.preventDefault();
+          const willCheck = !this.multiSelectedPaths.has(item.path);
+          this.callbacks.onCheckboxToggle(item, willCheck);
+          this.lastClickedItem = item;
+          return;
+        }
+
+        // Regular click (without modifier keys): update anchor and drill-down / preview
+        this.lastClickedItem = item;
         if (item.isDirectory) {
           this.callbacks.onFolderClick(item);
         } else {
