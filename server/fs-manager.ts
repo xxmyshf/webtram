@@ -48,7 +48,7 @@ export class FsManager {
   private rootDir: string;
 
   constructor(rootDir?: string) {
-    this.rootDir = rootDir || process.env.WEBTERM_FS_ROOT || os.homedir();
+    this.rootDir = rootDir || process.env.WEBTERM_FS_ROOT || process.env.HOME || os.homedir();
   }
 
   public getRootDir(): string {
@@ -56,18 +56,22 @@ export class FsManager {
   }
 
   /**
-   * 规范化并解析目标路径 (支持 ~ 自动展开为用户主目录)
+   * 规范化并解析目标路径 (严格支持当前用户的真实 Home 目录 ~ 自动展开)
    */
   public resolvePath(targetPath?: string): string {
+    const userHome = process.env.HOME || os.homedir();
     if (!targetPath || targetPath.trim() === '' || targetPath.trim() === '~') {
-      return os.homedir();
+      return userHome;
     }
     const trimmed = targetPath.trim();
     if (trimmed === '~') {
-      return os.homedir();
+      return userHome;
     }
     if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
-      return path.resolve(os.homedir(), trimmed.slice(2));
+      return path.resolve(userHome, trimmed.slice(2));
+    }
+    if (trimmed === '.' || trimmed === './') {
+      return userHome;
     }
     const resolved = path.isAbsolute(trimmed)
       ? path.resolve(trimmed)
@@ -146,7 +150,7 @@ export class FsManager {
       parentPath,
       entries,
       totalCount: entries.length,
-      homeDir: os.homedir()
+      homeDir: process.env.HOME || os.homedir()
     };
   }
 

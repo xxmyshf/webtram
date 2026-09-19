@@ -100,7 +100,7 @@ if (isHttpsActive) {
 }
 
 // Setup File System Manager (defaults to user home directory ~)
-const fsManager = new FsManager(process.env.WEBTERM_FS_ROOT || os.homedir());
+const fsManager = new FsManager(process.env.WEBTERM_FS_ROOT || process.env.HOME || os.homedir());
 
 // Setup WebSocket server
 const wss = setupWebSocketServer(server, ptyManager, fsManager);

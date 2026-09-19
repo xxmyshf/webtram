@@ -89,8 +89,10 @@ export class DirectoryColumn {
       return;
     }
 
-    const { currentPath, parentPath, entries } = this.currentData;
-    const folderName = currentPath === '/' ? '/' : currentPath.split('/').pop() || currentPath;
+    const { currentPath, parentPath, entries, homeDir } = this.currentData;
+    const isHome = Boolean(homeDir && currentPath === homeDir);
+    const folderName = isHome ? '~' : (currentPath === '/' ? '/' : currentPath.split('/').pop() || currentPath);
+    const displayTitle = isHome ? `~ (${currentPath})` : currentPath;
 
     const filtered = entries.filter((e) => {
       if (!this.filterQuery) return true;
@@ -100,8 +102,8 @@ export class DirectoryColumn {
     this.container.innerHTML = `
       <!-- Column Header -->
       <div class="col-header">
-        <div class="col-header-title" title="${this.escapeHtml(currentPath)}">
-          <span class="col-dir-icon">📁</span>
+        <div class="col-header-title" title="${this.escapeHtml(displayTitle)}">
+          <span class="col-dir-icon">${isHome ? '🏠' : '📁'}</span>
           <span class="col-dir-name">${this.escapeHtml(folderName)}</span>
           <span class="col-item-count">(${entries.length})</span>
         </div>
