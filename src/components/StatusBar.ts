@@ -40,15 +40,18 @@ export class StatusBar {
           </span>
         </div>
 
-        <!-- View Mode Switcher -->
+        <!-- View Mode Switcher (Icon only, consistent height with other bar-btn) -->
         <div class="cyber-view-switcher">
-          <button type="button" class="view-tab-btn active" data-view="terminal" title="切换到终端视图">
-            <span class="tab-icon">📟</span>
-            <span class="tab-label">终端</span>
+          <button type="button" class="bar-btn view-tab-btn active" data-view="terminal" title="终端视图 (Alt+F)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
           </button>
-          <button type="button" class="view-tab-btn" data-view="files" title="切换到文件管理器视图">
-            <span class="tab-icon">📁</span>
-            <span class="tab-label">文件</span>
+          <button type="button" class="bar-btn view-tab-btn" data-view="files" title="文件管理器视图 (Alt+F)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
           </button>
         </div>
       </div>

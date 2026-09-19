@@ -66,9 +66,12 @@ export class VirtualKeyboard {
 
     this.render();
 
-    // Global pointerup to ensure voice/repeat touches are released even if dragged outside
+    // Global pointerup/touchend to ensure voice/repeat touches are released even if dragged outside
     window.addEventListener('pointerup', () => this.handleGlobalPointerUp());
     window.addEventListener('pointercancel', () => this.handleGlobalPointerUp());
+    window.addEventListener('touchend', () => this.handleGlobalPointerUp());
+    window.addEventListener('touchcancel', () => this.handleGlobalPointerUp());
+    window.addEventListener('mouseup', () => this.handleGlobalPointerUp());
     window.addEventListener('pointermove', (e) => this.handleGlobalPointerMove(e));
 
     // Monitor orientation change to trigger terminal fit
@@ -274,7 +277,11 @@ export class VirtualKeyboard {
     options?: { repeat?: boolean; repeatValue?: string }
   ): void {
     if (!isFaint) {
-      btn.addEventListener('pointerdown', (e) => {
+      // Solid / Standard Keys:
+      // Touch/Click triggers IMMEDIATELY on touchstart / mousedown with 0ms delay!
+      let isTouchHandled = false;
+
+      const triggerPress = (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
         this.triggerKeyTouchFeedback(btn);
@@ -283,23 +290,61 @@ export class VirtualKeyboard {
         } else {
           action();
         }
+      };
+
+      const stopPress = (e: Event) => {
+        if (options?.repeat) {
+          this.stopKeyRepeat();
+        }
+      };
+
+      // 1. Mobile Touch (fires instantly at hardware touch interrupt, 0ms lag)
+      btn.addEventListener('touchstart', (e) => {
+        isTouchHandled = true;
+        triggerPress(e);
+      }, { passive: false });
+
+      btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopPress(e);
+        setTimeout(() => { isTouchHandled = false; }, 150);
+      }, { passive: false });
+
+      btn.addEventListener('touchcancel', (e) => {
+        stopPress(e);
+        isTouchHandled = false;
+      }, { passive: false });
+
+      // 2. Desktop Pointer / Mouse
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch' || isTouchHandled) return;
+        triggerPress(e);
       });
 
-      if (options?.repeat) {
-        const stop = () => this.stopKeyRepeat();
-        btn.addEventListener('pointerup', stop);
-        btn.addEventListener('pointercancel', stop);
-        btn.addEventListener('pointerleave', stop);
-      }
+      btn.addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'touch') return;
+        stopPress(e);
+      });
+
+      btn.addEventListener('pointercancel', (e) => {
+        if (e.pointerType === 'touch') return;
+        stopPress(e);
+      });
+
+      btn.addEventListener('pointerleave', (e) => {
+        if (e.pointerType === 'touch') return;
+        stopPress(e);
+      });
     } else {
-      // Faint / Hidden Keys (floating over terminal in landscape):
-      // Only responds on release ("只响应触摸松开的动作")!
-      // If dragged, forwards touch scroll delta to terminal so user can scroll through it!
+      // Faint / Transparent Keys (floating over terminal screen in landscape):
+      // Must NOT trigger immediately on touch down, so screen scrolling is NEVER blocked!
+      // Dragging forwards touch scroll delta to terminal; tapping without dragging triggers on release.
       let startX = 0;
       let startY = 0;
       let lastY = 0;
       let isDragging = false;
       let pointerId: number | null = null;
+      let faintRepeatTimer: NodeJS.Timeout | null = null;
 
       btn.addEventListener('pointerdown', (e) => {
         pointerId = e.pointerId;
@@ -310,6 +355,16 @@ export class VirtualKeyboard {
         try {
           btn.setPointerCapture(e.pointerId);
         } catch {}
+
+        // For repeatable keys like Backspace, if user holds without moving (>280ms), start continuous repeat
+        if (options?.repeat) {
+          faintRepeatTimer = setTimeout(() => {
+            if (!isDragging) {
+              this.triggerKeyTouchFeedback(btn);
+              this.startKeyRepeat(options.repeatValue!);
+            }
+          }, 280);
+        }
       });
 
       btn.addEventListener('pointermove', (e) => {
@@ -320,6 +375,11 @@ export class VirtualKeyboard {
 
         if (!isDragging && dist > 6) {
           isDragging = true;
+          if (faintRepeatTimer) {
+            clearTimeout(faintRepeatTimer);
+            faintRepeatTimer = null;
+          }
+          this.stopKeyRepeat();
         }
 
         if (isDragging) {
@@ -335,6 +395,15 @@ export class VirtualKeyboard {
           btn.releasePointerCapture(e.pointerId);
         } catch {}
         pointerId = null;
+
+        if (faintRepeatTimer) {
+          clearTimeout(faintRepeatTimer);
+          faintRepeatTimer = null;
+        }
+
+        if (options?.repeat) {
+          this.stopKeyRepeat();
+        }
 
         if (!isDragging && !cancel) {
           this.triggerKeyTouchFeedback(btn);
@@ -464,7 +533,7 @@ export class VirtualKeyboard {
     } else if (item.repeat) {
       keyBtn.textContent = item.label;
       this.bindKeyAction(keyBtn, isFaint, () => this.handleKeyPress(item.value!), {
-        repeat: !isFaint,
+        repeat: true,
         repeatValue: item.value!
       });
     } else {
@@ -578,7 +647,10 @@ export class VirtualKeyboard {
         <line x1="12" y1="9" x2="18" y2="15"></line>
       </svg>
     `;
-    this.bindKeyAction(bkspBtn, isFaint, () => this.handleKeyPress('\x7f'));
+    this.bindKeyAction(bkspBtn, isFaint, () => this.handleKeyPress('\x7f'), {
+      repeat: true,
+      repeatValue: '\x7f',
+    });
     return bkspBtn;
   }
 
@@ -721,8 +793,8 @@ export class VirtualKeyboard {
 
   private handleCharPress(char: string): void {
     const now = Date.now();
-    // Filter out synthetic duplicate pointer/touch events within 75ms
-    if (char === this.lastInputValue && now - this.lastInputTime < 75) {
+    // Filter out synthetic duplicate pointer/touch events within 35ms
+    if (char === this.lastInputValue && now - this.lastInputTime < 35) {
       return;
     }
     this.lastInputTime = now;
@@ -752,10 +824,10 @@ export class VirtualKeyboard {
     }
   }
 
-  private handleKeyPress(val: string): void {
+  private handleKeyPress(val: string, isRepeat = false): void {
     const now = Date.now();
-    // Filter out synthetic duplicate pointer/touch events within 75ms
-    if (val === this.lastInputValue && now - this.lastInputTime < 75) {
+    // Filter out synthetic duplicate pointer/touch events within 35ms (skip debounce for repeat keys)
+    if (!isRepeat && val === this.lastInputValue && now - this.lastInputTime < 35) {
       return;
     }
     this.lastInputTime = now;
@@ -799,13 +871,14 @@ export class VirtualKeyboard {
   }
 
   private startKeyRepeat(val: string): void {
-    this.handleKeyPress(val);
+    this.stopKeyRepeat();
+    this.handleKeyPress(val, false);
 
     this.repeatTimer = setTimeout(() => {
       this.repeatInterval = setInterval(() => {
-        this.handleKeyPress(val);
-      }, 70);
-    }, 350);
+        this.handleKeyPress(val, true);
+      }, 55);
+    }, 280);
   }
 
   private stopKeyRepeat(): void {

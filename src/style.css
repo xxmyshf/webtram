@@ -582,7 +582,7 @@ html, body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   transition: transform 0.05s ease, background 0.1s ease, box-shadow 0.1s ease;
@@ -1604,46 +1604,38 @@ html, body {
 .cyber-view-switcher {
   display: inline-flex;
   align-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 229, 255, 0.25);
-  border-radius: 6px;
-  padding: 2px;
-  gap: 2px;
-  margin-left: 12px;
+  gap: 6px;
+  margin-left: 8px;
 }
 
 .view-tab-btn {
-  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
   align-items: center;
-  gap: 5px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted, #7c8ba1);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 3px 9px;
-  border-radius: 4px;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: var(--border-subtle);
+  color: var(--text-dim, #8b949e);
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: inherit;
   user-select: none;
 }
 
 .view-tab-btn:hover {
-  color: #ffffff;
-  background: rgba(0, 229, 255, 0.1);
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
 }
 
 .view-tab-btn.active {
-  background: rgba(0, 229, 255, 0.2);
-  color: var(--neon-cyan, #00e5ff);
-  font-weight: 600;
-  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
-}
-
-.view-tab-btn .tab-icon {
-  font-size: 13px;
-  line-height: 1;
+  background: rgba(0, 229, 255, 0.22) !important;
+  border-color: var(--neon-cyan) !important;
+  color: var(--neon-cyan) !important;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.35) !important;
 }
 
 /* File Manager Main Container */
