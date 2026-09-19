@@ -1997,6 +1997,8 @@ html, body {
   transition: background 0.12s ease;
   user-select: none;
   gap: 4px;
+  position: relative;
+  box-sizing: border-box;
 }
 
 .file-row:hover {
@@ -2005,13 +2007,26 @@ html, body {
 
 .file-row.file-row-selected {
   background: rgba(0, 229, 255, 0.2) !important;
-  border-left: 3px solid var(--neon-cyan, #00e5ff);
   color: #ffffff;
 }
 
 .file-row.folder-row-active {
   background: rgba(0, 229, 255, 0.12) !important;
-  border-left: 3px solid var(--neon-cyan, #00e5ff);
+}
+
+/* Selected/Active glowing indicator bar (absolute positioning prevents any layout shift of checkboxes and text) */
+.file-row.file-row-selected::before,
+.file-row.folder-row-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-cyan, #00e5ff);
+  box-shadow: 0 0 8px var(--neon-cyan, #00e5ff);
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
 }
 
 .file-row.file-row-multi-selected {
