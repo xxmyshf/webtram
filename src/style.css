@@ -1744,6 +1744,111 @@ html, body {
   color: #fff;
 }
 
+/* Breadcrumb Navigation Bar */
+.fm-breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: rgba(10, 14, 24, 0.98);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+  min-height: 36px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  gap: 8px;
+  overflow: hidden;
+  position: relative;
+  z-index: 3;
+}
+
+.fm-breadcrumb-trail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.fm-breadcrumb-trail::-webkit-scrollbar {
+  display: none;
+}
+
+.fm-breadcrumb-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c9d1d9;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fm-breadcrumb-chip:hover {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--neon-cyan, #00e5ff);
+  color: var(--neon-cyan, #00e5ff);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.25);
+}
+
+.fm-breadcrumb-chip.chip-active {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--neon-cyan, #00e5ff);
+  color: var(--neon-cyan, #00e5ff);
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.2);
+}
+
+.fm-breadcrumb-sep {
+  color: #64748b;
+  font-size: 11px;
+  user-select: none;
+}
+
+.fm-breadcrumb-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.fm-breadcrumb-action-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.fm-breadcrumb-action-btn:hover {
+  background: rgba(0, 229, 255, 0.15);
+  color: #00e5ff;
+  border-color: #00e5ff;
+}
+
+.fm-viewport-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: var(--neon-cyan, #00e5ff);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+
 /* 3-Column Miller Directory View */
 .fm-three-column-container {
   display: flex;
@@ -1754,13 +1859,13 @@ html, body {
   background: #080c14;
   position: relative;
   z-index: 2;
+  scroll-behavior: smooth;
 }
 
 /* Directory Column (Shared by 3-column and 1-column views) */
 .directory-column {
-  flex: 1;
-  min-width: 260px;
-  max-width: 460px;
+  flex: 1 1 0;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid rgba(0, 229, 255, 0.15);
@@ -2587,14 +2692,15 @@ html, body {
     flex-direction: column;
   }
   .fm-three-column-container {
-    flex-direction: column;
+    flex-direction: row;
+    overflow-x: auto;
   }
   .directory-column {
-    min-width: 100%;
-    max-width: 100%;
-    min-height: 200px;
-    border-right: none;
-    border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+    min-width: 85vw;
+    max-width: 85vw;
+    height: 100%;
+    border-right: 1px solid rgba(0, 229, 255, 0.15);
+    border-bottom: none;
   }
   .single-col-pane {
     width: 100%;

@@ -37,6 +37,7 @@ export interface ListDirResult {
   parentPath: string | null;
   entries: FileEntry[];
   totalCount: number;
+  homeDir?: string;
   error?: string;
 }
 

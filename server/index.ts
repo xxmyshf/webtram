@@ -5,6 +5,7 @@ import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { PtyManager } from './pty-manager.js';
 import { setupWebSocketServer } from './websocket-server.js';
@@ -98,8 +99,8 @@ if (isHttpsActive) {
   });
 }
 
-// Setup File System Manager
-const fsManager = new FsManager(projectRoot);
+// Setup File System Manager (defaults to user home directory ~)
+const fsManager = new FsManager(process.env.WEBTERM_FS_ROOT || os.homedir());
 
 // Setup WebSocket server
 const wss = setupWebSocketServer(server, ptyManager, fsManager);

@@ -19,12 +19,18 @@ export class FileManager {
   // Header Toolbar
   private toolbar!: FileToolbar;
 
-  // View 1: 3-Level Miller Columns (when NO file selected)
+  // View 1: 3-Window Sliding Directory View (when NO file selected)
   private threeColumnContainer!: HTMLElement;
   private col0!: DirectoryColumn;
   private col1!: DirectoryColumn;
   private col2!: DirectoryColumn;
-  private colPaths: [string, string, string] = ['', '', ''];
+  private breadcrumbBar!: HTMLElement;
+
+  // Viewport & Navigation stack
+  private navStack: string[] = []; // Hierarchy chain of directories, e.g. ['/home/user', '/home/user/Project']
+  private windowStart = 0;         // Starting index within navStack for the 3 visible windows
+  private homeDir = '';            // Host user's home directory (e.g. '/home/user')
+  private dirCache = new Map<string, ListDirResult>(); // Fast directory cache
 
   // View 2: 1-Column + Dual Preview Pane (when a file IS selected)
   private oneColumnContainer!: HTMLElement;
@@ -55,7 +61,7 @@ export class FileManager {
   public show(): void {
     this.container.style.display = 'flex';
     if (!this.currentDir) {
-      this.refreshCurrentDir();
+      this.loadDirectory('~');
     }
   }
 
@@ -117,42 +123,47 @@ export class FileManager {
     });
     this.container.appendChild(this.toolbar.getElement());
 
-    // 2. View 1: 3-Column Miller Directory View
+    // 2. Breadcrumb Navigation Bar
+    this.breadcrumbBar = document.createElement('div');
+    this.breadcrumbBar.className = 'fm-breadcrumb-bar';
+    this.breadcrumbBar.id = 'fm-breadcrumb-bar';
+
+    // 3. View 1: 3-Window Sliding Directory View
     this.threeColumnContainer = document.createElement('div');
     this.threeColumnContainer.className = 'fm-three-column-container';
 
     this.col0 = new DirectoryColumn({
-      onFolderClick: (folder) => this.handleCol0FolderClick(folder),
+      onFolderClick: (folder) => this.handleColumnFolderClick(0, folder),
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, 0),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
-      onNavigateUp: (parent) => this.navigateCol0Up(parent)
+      onNavigateUp: (parent) => this.handleColumnNavigateUp(0, parent)
     }, 'col-level-0');
 
     this.col1 = new DirectoryColumn({
-      onFolderClick: (folder) => this.handleCol1FolderClick(folder),
+      onFolderClick: (folder) => this.handleColumnFolderClick(1, folder),
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, 1),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
-      onNavigateUp: (parent) => this.loadCol1(parent)
+      onNavigateUp: (parent) => this.handleColumnNavigateUp(1, parent)
     }, 'col-level-1');
 
     this.col2 = new DirectoryColumn({
-      onFolderClick: (folder) => this.handleCol2FolderClick(folder),
+      onFolderClick: (folder) => this.handleColumnFolderClick(2, folder),
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, 2),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
       onInlineRename: (item, newName) => this.performRename(item, newName),
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
-      onNavigateUp: (parent) => this.loadCol2(parent)
+      onNavigateUp: (parent) => this.handleColumnNavigateUp(2, parent)
     }, 'col-level-2');
 
     this.threeColumnContainer.appendChild(this.col0.getElement());
     this.threeColumnContainer.appendChild(this.col1.getElement());
     this.threeColumnContainer.appendChild(this.col2.getElement());
 
-    // 3. View 2: 1-Column + Dual Preview Workspace
+    // 4. View 2: 1-Column + Dual Preview Workspace
     this.oneColumnContainer = document.createElement('div');
     this.oneColumnContainer.className = 'fm-one-column-container';
     this.oneColumnContainer.style.display = 'none';
@@ -161,7 +172,7 @@ export class FileManager {
       onFolderClick: (folder) => {
         // In 1-column mode, clicking a folder navigates into it and deselects file
         this.deselectFile();
-        this.loadDirectory(folder.path);
+        this.handleColumnFolderClick(0, folder);
       },
       onFileClick: (file, isAlreadySelected) => this.handleFileClick(file, isAlreadySelected, -1),
       onCheckboxToggle: (item, checked) => this.handleCheckboxToggle(item, checked),
@@ -169,7 +180,7 @@ export class FileManager {
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => {
         this.deselectFile();
-        this.loadDirectory(parent);
+        this.handleColumnNavigateUp(0, parent);
       }
     }, 'single-col-pane');
 
@@ -198,6 +209,7 @@ export class FileManager {
     this.oneColumnContainer.appendChild(this.singleCol.getElement());
     this.oneColumnContainer.appendChild(rightWorkspace);
 
+    this.container.appendChild(this.breadcrumbBar);
     this.container.appendChild(this.threeColumnContainer);
     this.container.appendChild(this.oneColumnContainer);
 
@@ -225,68 +237,48 @@ export class FileManager {
   }
 
   /**
-   * 加载当前/指定目录（初始化或刷新）
+   * 加载当前/指定目录（默认加载 ~ 用户主目录，初始仅加载单列表）
    */
-  public async loadDirectory(dirPath?: string): Promise<void> {
+  public async loadDirectory(dirPath: string = '~'): Promise<void> {
     try {
-      const res: ListDirResult = await this.sendFsRequest({
-        type: 'fs_list',
-        path: dirPath
-      });
-
-      if (res.error) {
-        cyberToast(`读取目录错误: ${res.error}`, 'error');
+      const res = await this.fetchDirData(dirPath);
+      if (!res || res.error) {
+        cyberToast(res?.error || '读取目录失败', 'error');
         return;
       }
 
-      this.currentDir = res.currentPath;
-      this.colPaths[0] = res.currentPath;
-      this.col0.setData(res);
-
-      // Check if there are subdirectories in col0, auto open the first directory in col1 if col1 is empty
-      const firstDir = res.entries.find((e) => e.isDirectory);
-      if (firstDir) {
-        this.col0.setActiveFolder(firstDir.path);
-        await this.loadCol1(firstDir.path);
-      } else {
-        this.col1.setData(null);
-        this.col2.setData(null);
-        this.colPaths[1] = '';
-        this.colPaths[2] = '';
+      if (res.homeDir) {
+        this.homeDir = res.homeDir;
       }
 
-      this.updateToolbarContext();
+      this.currentDir = res.currentPath;
+      this.navStack = [res.currentPath];
+      this.windowStart = 0;
+      await this.renderViewport();
     } catch (err: any) {
       cyberToast(`请求目录失败: ${err.message}`, 'error');
     }
   }
 
   public async refreshCurrentDir(): Promise<void> {
+    this.dirCache.clear();
     if (this.selectedFile) {
       // In 1-column mode, refresh singleCol
       const p = this.singleCol.getCurrentPath() || this.currentDir;
-      const res = await this.fetchDirData(p);
+      const res = await this.fetchDirData(p, true);
       if (res) this.singleCol.setData(res);
       await this.loadFilePreview(this.selectedFile.path);
     } else {
-      // In 3-column mode, reload columns
-      if (this.colPaths[0]) {
-        const res0 = await this.fetchDirData(this.colPaths[0]);
-        if (res0) this.col0.setData(res0);
-      }
-      if (this.colPaths[1]) {
-        const res1 = await this.fetchDirData(this.colPaths[1]);
-        if (res1) this.col1.setData(res1);
-      }
-      if (this.colPaths[2]) {
-        const res2 = await this.fetchDirData(this.colPaths[2]);
-        if (res2) this.col2.setData(res2);
-      }
+      // In multi-column mode, re-render visible windows
+      await this.renderViewport();
     }
     cyberToast('目录已刷新', 'info', 1500);
   }
 
-  private async fetchDirData(path: string): Promise<ListDirResult | null> {
+  private async fetchDirData(path: string, force = false): Promise<ListDirResult | null> {
+    if (!force && this.dirCache.has(path)) {
+      return this.dirCache.get(path)!;
+    }
     try {
       const res: ListDirResult = await this.sendFsRequest({
         type: 'fs_list',
@@ -296,71 +288,216 @@ export class FileManager {
         cyberToast(res.error, 'error');
         return null;
       }
+      this.dirCache.set(path, res);
+      if (res.homeDir) {
+        this.homeDir = res.homeDir;
+      }
       return res;
     } catch {
       return null;
     }
   }
 
-  private async loadCol1(dirPath: string): Promise<void> {
-    this.colPaths[1] = dirPath;
-    const res = await this.fetchDirData(dirPath);
-    this.col1.setData(res);
+  /**
+   * 动态三窗口滑动视口渲染 (Sliding 3-Window Viewport)
+   * 随着用户下钻/回退，三个窗口动态调整观察范围
+   */
+  private async renderViewport(): Promise<void> {
+    if (this.navStack.length === 0) return;
 
-    // If col1 has subdirectories, auto open the first in col2
-    const firstDir = res?.entries.find((e) => e.isDirectory);
-    if (firstDir) {
-      this.col1.setActiveFolder(firstDir.path);
-      await this.loadCol2(firstDir.path);
+    if (this.windowStart >= this.navStack.length) {
+      this.windowStart = Math.max(0, this.navStack.length - 1);
+    }
+    if (this.windowStart < 0) {
+      this.windowStart = 0;
+    }
+
+    this.currentDir = this.navStack[this.navStack.length - 1];
+
+    const p0 = this.navStack[this.windowStart];
+    const p1 = this.windowStart + 1 < this.navStack.length ? this.navStack[this.windowStart + 1] : null;
+    const p2 = this.windowStart + 2 < this.navStack.length ? this.navStack[this.windowStack + 2] : null;
+    const p3 = this.windowStart + 3 < this.navStack.length ? this.navStack[this.windowStart + 3] : null;
+
+    // Window 0 (col0): 始终可见
+    this.col0.getElement().style.display = 'flex';
+    const res0 = await this.fetchDirData(p0);
+    if (res0) {
+      this.col0.setData(res0);
+      this.col0.setActiveFolder(p1);
+    }
+
+    // Window 1 (col1): 仅在下钻到 >=2 级时显示
+    if (p1) {
+      this.col1.getElement().style.display = 'flex';
+      const res1 = await this.fetchDirData(p1);
+      if (res1) {
+        this.col1.setData(res1);
+        this.col1.setActiveFolder(p2);
+      }
     } else {
+      this.col1.getElement().style.display = 'none';
+      this.col1.setData(null);
+    }
+
+    // Window 2 (col2): 仅在下钻到 >=3 级时显示
+    if (p2) {
+      this.col2.getElement().style.display = 'flex';
+      const res2 = await this.fetchDirData(p2);
+      if (res2) {
+        this.col2.setData(res2);
+        this.col2.setActiveFolder(p3);
+      }
+    } else {
+      this.col2.getElement().style.display = 'none';
       this.col2.setData(null);
-      this.colPaths[2] = '';
+    }
+
+    // 渲染快捷层级面包屑条
+    this.renderBreadcrumbBar();
+    this.updateToolbarContext();
+
+    // 移动端/窄屏自动向右平滑滚动以露出最新窗口
+    requestAnimationFrame(() => {
+      if (this.threeColumnContainer) {
+        this.threeColumnContainer.scrollLeft = this.threeColumnContainer.scrollWidth;
+      }
+    });
+  }
+
+  /**
+   * 点击窗口中的文件夹：展开下级并滑动视口
+   */
+  private async handleColumnFolderClick(windowIdx: number, folder: FileEntry): Promise<void> {
+    const stackIdx = this.windowStart + windowIdx;
+
+    // 若点击的文件夹恰好为下级的激活项且是分支末端，保持现状
+    if (this.navStack[stackIdx + 1] === folder.path && this.navStack.length === stackIdx + 2) {
+      return;
+    }
+
+    // 截断该层级之后的栈，并推进新子目录
+    this.navStack = this.navStack.slice(0, stackIdx + 1);
+    this.navStack.push(folder.path);
+
+    // 若新下钻深度超出当前视口容纳的 3 个窗口，视口向右滑动
+    if (this.navStack.length - this.windowStart > 3) {
+      this.windowStart = this.navStack.length - 3;
+    }
+
+    await this.renderViewport();
+  }
+
+  /**
+   * 窗口内部向上返回（▲ 上级）
+   */
+  private async handleColumnNavigateUp(windowIdx: number, parentPath: string): Promise<void> {
+    if (windowIdx === 0) {
+      if (this.windowStart > 0) {
+        // 视口整体向左滑动，观察更高层级
+        this.windowStart -= 1;
+        await this.renderViewport();
+      } else {
+        // 当前视口已处于栈顶，向前追加父级目录
+        const curRoot = this.navStack[0];
+        const res = await this.fetchDirData(curRoot);
+        const targetParent = res?.parentPath || parentPath;
+        if (targetParent) {
+          this.navStack.unshift(targetParent);
+          this.windowStart = 0;
+          await this.renderViewport();
+        }
+      }
+    } else if (windowIdx === 1) {
+      // 在 Window 1 上点上级：关闭 Window 1 和 2，回到 Window 0
+      this.navStack = this.navStack.slice(0, this.windowStart + 1);
+      await this.renderViewport();
+    } else if (windowIdx === 2) {
+      // 在 Window 2 上点上级：关闭 Window 2，回到 Window 1
+      this.navStack = this.navStack.slice(0, this.windowStart + 2);
+      await this.renderViewport();
     }
   }
 
-  private async loadCol2(dirPath: string): Promise<void> {
-    this.colPaths[2] = dirPath;
-    const res = await this.fetchDirData(dirPath);
-    this.col2.setData(res);
+  /**
+   * 渲染快捷层级面包屑条
+   */
+  private renderBreadcrumbBar(): void {
+    if (!this.breadcrumbBar) return;
+    this.breadcrumbBar.innerHTML = '';
+
+    const trail = document.createElement('div');
+    trail.className = 'fm-breadcrumb-trail';
+
+    this.navStack.forEach((pathItem, idx) => {
+      if (idx > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'fm-breadcrumb-sep';
+        sep.textContent = '/';
+        trail.appendChild(sep);
+      }
+
+      let displayName = pathItem;
+      if (this.homeDir && pathItem === this.homeDir) {
+        displayName = '~';
+      } else if (pathItem === '/') {
+        displayName = '/';
+      } else {
+        displayName = pathItem.split('/').filter(Boolean).pop() || pathItem;
+      }
+
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'fm-breadcrumb-chip';
+      if (idx === this.navStack.length - 1) {
+        chip.classList.add('chip-active');
+      }
+      chip.title = `点击切换至: ${pathItem}`;
+      chip.textContent = displayName;
+      chip.addEventListener('click', () => {
+        this.jumpToStackIndex(idx);
+      });
+
+      trail.appendChild(chip);
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'fm-breadcrumb-actions';
+
+    // 快速回到主目录 (~) 按钮
+    const homeBtn = document.createElement('button');
+    homeBtn.type = 'button';
+    homeBtn.className = 'fm-breadcrumb-action-btn';
+    homeBtn.title = '快速跳转到用户主目录 (~)';
+    homeBtn.innerHTML = `<span>🏠</span><span>主目录 (~)</span>`;
+    homeBtn.addEventListener('click', () => {
+      this.loadDirectory('~');
+    });
+    actions.appendChild(homeBtn);
+
+    // 视口观察范围指示徽章（当下钻 >3 层时展示）
+    if (this.navStack.length > 3) {
+      const badge = document.createElement('span');
+      badge.className = 'fm-viewport-badge';
+      const visibleStart = this.windowStart + 1;
+      const visibleEnd = Math.min(this.navStack.length, this.windowStart + 3);
+      badge.title = `三窗口视口正观察第 ${visibleStart} 至 ${visibleEnd} 级目录（共 ${this.navStack.length} 级）`;
+      badge.textContent = `👁 窗口 ${visibleStart}-${visibleEnd}/${this.navStack.length}`;
+      actions.appendChild(badge);
+    }
+
+    this.breadcrumbBar.appendChild(trail);
+    this.breadcrumbBar.appendChild(actions);
   }
 
-  private handleCol0FolderClick(folder: FileEntry): void {
-    this.currentDir = folder.path;
-    this.col0.setActiveFolder(folder.path);
-    this.loadCol1(folder.path);
-    this.updateToolbarContext();
-  }
-
-  private handleCol1FolderClick(folder: FileEntry): void {
-    this.currentDir = folder.path;
-    this.col1.setActiveFolder(folder.path);
-    this.loadCol2(folder.path);
-    this.updateToolbarContext();
-  }
-
-  private async handleCol2FolderClick(folder: FileEntry): Promise<void> {
-    // When clicking a folder in column 2, cascade shift!
-    this.currentDir = folder.path;
-    this.colPaths[0] = this.colPaths[1];
-    this.colPaths[1] = this.colPaths[2];
-    this.colPaths[2] = folder.path;
-
-    const res0 = await this.fetchDirData(this.colPaths[0]);
-    if (res0) this.col0.setData(res0);
-    this.col0.setActiveFolder(this.colPaths[1]);
-
-    const res1 = await this.fetchDirData(this.colPaths[1]);
-    if (res1) this.col1.setData(res1);
-    this.col1.setActiveFolder(this.colPaths[2]);
-
-    const res2 = await this.fetchDirData(this.colPaths[2]);
-    if (res2) this.col2.setData(res2);
-
-    this.updateToolbarContext();
-  }
-
-  private async navigateCol0Up(parentPath: string): Promise<void> {
-    await this.loadDirectory(parentPath);
+  /**
+   * 点击面包屑直接跳转层级
+   */
+  private async jumpToStackIndex(idx: number): Promise<void> {
+    if (idx < 0 || idx >= this.navStack.length) return;
+    this.navStack = this.navStack.slice(0, idx + 1);
+    this.windowStart = Math.max(0, this.navStack.length - 3);
+    await this.renderViewport();
   }
 
   /**
@@ -418,7 +555,7 @@ export class FileManager {
     this.previewPane.render(null);
     this.binaryInspector.render(null);
 
-    this.updateToolbarContext();
+    this.renderViewport();
   }
 
   /**

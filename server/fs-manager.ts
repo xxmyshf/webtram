@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 export interface FileEntry {
   name: string;
@@ -40,13 +41,14 @@ export interface ListDirResult {
   parentPath: string | null;
   entries: FileEntry[];
   totalCount: number;
+  homeDir?: string;
 }
 
 export class FsManager {
   private rootDir: string;
 
   constructor(rootDir?: string) {
-    this.rootDir = rootDir || process.env.WEBTERM_ROOT || process.cwd();
+    this.rootDir = rootDir || process.env.WEBTERM_FS_ROOT || os.homedir();
   }
 
   public getRootDir(): string {
@@ -54,15 +56,22 @@ export class FsManager {
   }
 
   /**
-   * 规范化并解析目标路径
+   * 规范化并解析目标路径 (支持 ~ 自动展开为用户主目录)
    */
   public resolvePath(targetPath?: string): string {
-    if (!targetPath || targetPath.trim() === '') {
-      return this.rootDir;
+    if (!targetPath || targetPath.trim() === '' || targetPath.trim() === '~') {
+      return os.homedir();
     }
-    const resolved = path.isAbsolute(targetPath)
-      ? path.resolve(targetPath)
-      : path.resolve(this.rootDir, targetPath);
+    const trimmed = targetPath.trim();
+    if (trimmed === '~') {
+      return os.homedir();
+    }
+    if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+      return path.resolve(os.homedir(), trimmed.slice(2));
+    }
+    const resolved = path.isAbsolute(trimmed)
+      ? path.resolve(trimmed)
+      : path.resolve(this.rootDir, trimmed);
     return resolved;
   }
 
@@ -136,7 +145,8 @@ export class FsManager {
       currentPath: resolved,
       parentPath,
       entries,
-      totalCount: entries.length
+      totalCount: entries.length,
+      homeDir: os.homedir()
     };
   }
 
