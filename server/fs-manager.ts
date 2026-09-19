@@ -408,6 +408,70 @@ export class FsManager {
     }
   }
 
+  public batchDelete(targetPaths: string[]): { successCount: number; errors: string[] } {
+    let successCount = 0;
+    const errors: string[] = [];
+    for (const p of targetPaths) {
+      try {
+        this.delete(p);
+        successCount++;
+      } catch (err: any) {
+        errors.push(`${path.basename(p)}: ${err.message}`);
+      }
+    }
+    return { successCount, errors };
+  }
+
+  public copy(sourcePath: string, targetDir: string): string {
+    const resolvedSource = this.resolvePath(sourcePath);
+    const resolvedTargetDir = this.resolvePath(targetDir);
+
+    if (!fs.existsSync(resolvedSource)) {
+      throw new Error(`源文件不存在: ${sourcePath}`);
+    }
+    if (!fs.existsSync(resolvedTargetDir)) {
+      throw new Error(`目标目录不存在: ${targetDir}`);
+    }
+
+    const baseName = path.basename(resolvedSource);
+    let targetPath = path.join(resolvedTargetDir, baseName);
+
+    // 冲突处理：若目标路径已存在，则生成 "name (copy).ext" 或 "name (copy 2).ext"
+    if (fs.existsSync(targetPath)) {
+      const ext = path.extname(baseName);
+      const nameWithoutExt = path.basename(baseName, ext);
+      let counter = 1;
+      let candidate = `${nameWithoutExt} (copy)${ext}`;
+      while (fs.existsSync(path.join(resolvedTargetDir, candidate))) {
+        counter++;
+        candidate = `${nameWithoutExt} (copy ${counter})${ext}`;
+      }
+      targetPath = path.join(resolvedTargetDir, candidate);
+    }
+
+    const stat = fs.statSync(resolvedSource);
+    if (stat.isDirectory()) {
+      fs.cpSync(resolvedSource, targetPath, { recursive: true });
+    } else {
+      fs.copyFileSync(resolvedSource, targetPath);
+    }
+    return targetPath;
+  }
+
+  public batchCopy(sourcePaths: string[], targetDir: string): { copiedPaths: string[]; errors: string[] } {
+    const copiedPaths: string[] = [];
+    const errors: string[] = [];
+    for (const p of sourcePaths) {
+      try {
+        const res = this.copy(p, targetDir);
+        copiedPaths.push(res);
+      } catch (err: any) {
+        errors.push(`${path.basename(p)}: ${err.message}`);
+      }
+    }
+    return { copiedPaths, errors };
+  }
+
   public writeFile(filePath: string, content: string | Buffer): void {
     const resolved = this.resolvePath(filePath);
     fs.writeFileSync(resolved, content);

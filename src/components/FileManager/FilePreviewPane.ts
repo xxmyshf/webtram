@@ -3,6 +3,7 @@ import { FileReadResult } from './types.js';
 export interface FilePreviewCallbacks {
   onSaveFile: (path: string, content: string) => Promise<boolean>;
   getAuthPassword: () => string;
+  onClosePreview?: () => void;
 }
 
 export class FilePreviewPane {
@@ -138,6 +139,9 @@ export class FilePreviewPane {
               <span>复制</span>
             </button>
           ` : ''}
+          <button type="button" class="cyber-btn-mini btn-close-preview" id="btn-close-preview" title="关闭预览，返回三栏目录浏览">
+            ✕ 退出预览
+          </button>
         </div>
       </div>
       <div class="preview-body">
@@ -238,6 +242,11 @@ export class FilePreviewPane {
         });
       });
     }
+
+    // Close preview
+    this.container.querySelector('#btn-close-preview')?.addEventListener('click', () => {
+      this.callbacks.onClosePreview?.();
+    });
   }
 
   private buildLineNumbers(text: string): string {

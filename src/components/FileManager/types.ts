@@ -40,7 +40,7 @@ export interface ListDirResult {
   error?: string;
 }
 
-export type FileActionType = 'create_file' | 'create_dir' | 'rename' | 'delete' | 'write_file';
+export type FileActionType = 'create_file' | 'create_dir' | 'rename' | 'delete' | 'batch_delete' | 'copy' | 'write_file';
 
 export interface FileActionParams {
   parentDir?: string;
@@ -48,8 +48,17 @@ export interface FileActionParams {
   oldPath?: string;
   newName?: string;
   targetPath?: string;
+  targetPaths?: string[];
+  sourcePath?: string;
+  sourcePaths?: string[];
+  targetDir?: string;
   path?: string;
   content?: string;
+}
+
+export interface ClipboardState {
+  mode: 'copy';
+  items: FileEntry[];
 }
 
 export interface FsActionResponse {
@@ -60,3 +69,4 @@ export interface FsActionResponse {
   data?: any;
   error?: string;
 }
+

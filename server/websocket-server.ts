@@ -167,8 +167,22 @@ export function setupWebSocketServer(
                   resultData = fsManager.rename(params.oldPath, params.newName);
                   break;
                 case 'delete':
-                  fsManager.delete(params.targetPath);
-                  resultData = true;
+                  if (Array.isArray(params.targetPaths)) {
+                    resultData = fsManager.batchDelete(params.targetPaths);
+                  } else {
+                    fsManager.delete(params.targetPath);
+                    resultData = true;
+                  }
+                  break;
+                case 'batch_delete':
+                  resultData = fsManager.batchDelete(params.targetPaths || []);
+                  break;
+                case 'copy':
+                  if (Array.isArray(params.sourcePaths)) {
+                    resultData = fsManager.batchCopy(params.sourcePaths, params.targetDir);
+                  } else {
+                    resultData = fsManager.copy(params.sourcePath, params.targetDir);
+                  }
                   break;
                 case 'write_file':
                   fsManager.writeFile(params.path, params.content);
