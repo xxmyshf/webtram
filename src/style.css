@@ -1860,6 +1860,25 @@ html, body {
   position: relative;
   z-index: 2;
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.2) transparent;
+}
+
+.fm-three-column-container::-webkit-scrollbar {
+  height: 3px;
+}
+
+.fm-three-column-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fm-three-column-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.2);
+  border-radius: 3px;
+}
+
+.fm-three-column-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.5);
 }
 
 /* Directory Column (Shared by 3-column and 1-column views) */
@@ -1960,6 +1979,28 @@ html, body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.25) transparent;
+}
+
+/* File list ultra-narrow indicator scrollbar */
+.col-list-wrapper::-webkit-scrollbar {
+  width: 3px;
+}
+
+.col-list-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.col-list-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.25);
+  border-radius: 3px;
+  transition: background 0.15s ease;
+}
+
+.col-list-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.6);
+  box-shadow: 0 0 4px var(--neon-cyan, #00e5ff);
 }
 
 .col-list-wrapper.drop-target-active {
