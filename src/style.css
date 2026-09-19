@@ -2018,6 +2018,34 @@ html, body {
   background: rgba(0, 229, 255, 0.16) !important;
 }
 
+/* Parent Directory (..) Row */
+.parent-dir-row {
+  color: var(--neon-cyan, #00e5ff) !important;
+  font-weight: 600;
+  border-bottom: 1px dashed rgba(0, 229, 255, 0.2);
+  margin-bottom: 3px;
+  background: rgba(0, 229, 255, 0.04);
+}
+.parent-dir-row:hover {
+  background: rgba(0, 229, 255, 0.18) !important;
+  color: #ffffff !important;
+}
+.parent-dir-row .row-name {
+  color: var(--neon-cyan, #00e5ff);
+  font-weight: 700;
+}
+.parent-dir-row:hover .row-name {
+  color: #ffffff;
+}
+
+.row-checkbox-placeholder {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
 /* Weak/Subtle Multi-Select Checkbox */
 .row-checkbox {
   display: inline-flex;

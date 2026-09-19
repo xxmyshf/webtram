@@ -20,6 +20,7 @@ export class DirectoryColumn {
   private multiSelectedPaths = new Set<string>();
   private filterQuery = '';
   private isEditingPath: string | null = null;
+  private showParentDirRow = false;
 
   constructor(callbacks: DirectoryColumnCallbacks, extraClassName = '') {
     this.callbacks = callbacks;
@@ -32,10 +33,28 @@ export class DirectoryColumn {
     return this.container;
   }
 
+  public setShowParentDirRow(show: boolean): void {
+    this.showParentDirRow = show;
+    if (this.currentData) {
+      this.render();
+    }
+  }
+
   public setData(data: ListDirResult | null): void {
+    const listWrapper = this.container.querySelector('.col-list-wrapper');
+    const prevScrollTop = listWrapper ? listWrapper.scrollTop : 0;
+    const prevPath = this.currentData?.currentPath;
+
     this.currentData = data;
     this.isEditingPath = null;
     this.render();
+
+    if (data && prevPath === data.currentPath && prevScrollTop > 0) {
+      const newWrapper = this.container.querySelector('.col-list-wrapper');
+      if (newWrapper) {
+        newWrapper.scrollTop = prevScrollTop;
+      }
+    }
   }
 
   public getData(): ListDirResult | null {
@@ -99,6 +118,8 @@ export class DirectoryColumn {
       return e.name.toLowerCase().includes(this.filterQuery.toLowerCase());
     });
 
+    const shouldShowParentRow = this.showParentDirRow && Boolean(parentPath);
+
     this.container.innerHTML = `
       <!-- Column Header -->
       <div class="col-header">
@@ -122,7 +143,14 @@ export class DirectoryColumn {
 
       <!-- Column List -->
       <div class="col-list-wrapper">
-        ${filtered.length === 0 ? `
+        ${shouldShowParentRow ? `
+          <div class="file-row dir-row parent-dir-row" data-parent-path="${this.escapeHtml(parentPath!)}" title="返回上级: ${this.escapeHtml(parentPath!)}">
+            <span class="row-checkbox-placeholder"></span>
+            <span class="row-icon">📁</span>
+            <span class="row-name">..</span>
+          </div>
+        ` : ''}
+        ${filtered.length === 0 && !shouldShowParentRow ? `
           <div class="col-empty-msg">空目录或未匹配到文件</div>
         ` : filtered.map((item) => {
           const isFileSelected = this.selectedFilePath === item.path;
@@ -174,6 +202,7 @@ export class DirectoryColumn {
 
   private updateRowSelection(): void {
     this.container.querySelectorAll<HTMLElement>('.file-row').forEach((row) => {
+      if (row.classList.contains('parent-dir-row')) return;
       const p = row.getAttribute('data-path');
       if (!p) return;
 
@@ -208,6 +237,15 @@ export class DirectoryColumn {
         this.callbacks.onNavigateUp?.(this.currentData.parentPath);
       }
     });
+
+    // Parent row (..) click
+    const parentRow = this.container.querySelector<HTMLElement>('.parent-dir-row');
+    if (parentRow && this.currentData?.parentPath) {
+      parentRow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.callbacks.onNavigateUp?.(this.currentData!.parentPath!);
+      });
+    }
 
     // Filter
     const filterInput = this.container.querySelector<HTMLInputElement>('.col-filter-input');
@@ -272,6 +310,7 @@ export class DirectoryColumn {
 
     // Row clicks & Checkbox toggles
     this.container.querySelectorAll<HTMLElement>('.file-row').forEach((row) => {
+      if (row.classList.contains('parent-dir-row')) return;
       const p = row.getAttribute('data-path');
       const item = this.currentData?.entries.find((e) => e.path === p);
       if (!item) return;

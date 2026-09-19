@@ -140,6 +140,7 @@ export class FileManager {
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => this.handleColumnNavigateUp(0, parent)
     }, 'col-level-0');
+    this.col0.setShowParentDirRow(true);
 
     this.col1 = new DirectoryColumn({
       onFolderClick: (folder) => this.handleColumnFolderClick(1, folder),
@@ -149,6 +150,7 @@ export class FileManager {
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => this.handleColumnNavigateUp(1, parent)
     }, 'col-level-1');
+    this.col1.setShowParentDirRow(false);
 
     this.col2 = new DirectoryColumn({
       onFolderClick: (folder) => this.handleColumnFolderClick(2, folder),
@@ -158,6 +160,7 @@ export class FileManager {
       onDropFiles: (files, targetDir) => this.uploadFiles(files, targetDir),
       onNavigateUp: (parent) => this.handleColumnNavigateUp(2, parent)
     }, 'col-level-2');
+    this.col2.setShowParentDirRow(false);
 
     this.threeColumnContainer.appendChild(this.col0.getElement());
     this.threeColumnContainer.appendChild(this.col1.getElement());
@@ -183,6 +186,7 @@ export class FileManager {
         this.handleColumnNavigateUp(0, parent);
       }
     }, 'single-col-pane');
+    this.singleCol.setShowParentDirRow(true);
 
     const rightWorkspace = document.createElement('div');
     rightWorkspace.className = 'fm-right-workspace';
@@ -269,7 +273,23 @@ export class FileManager {
       if (res) this.singleCol.setData(res);
       await this.loadFilePreview(this.selectedFile.path);
     } else {
-      // In multi-column mode, re-render visible windows
+      // Re-fetch data for active windows and update them
+      const p0 = this.navStack[this.windowStart];
+      const p1 = this.windowStart + 1 < this.navStack.length ? this.navStack[this.windowStart + 1] : null;
+      const p2 = this.windowStart + 2 < this.navStack.length ? this.navStack[this.windowStart + 2] : null;
+
+      if (p0) {
+        const res0 = await this.fetchDirData(p0, true);
+        if (res0) this.col0.setData(res0);
+      }
+      if (p1) {
+        const res1 = await this.fetchDirData(p1, true);
+        if (res1) this.col1.setData(res1);
+      }
+      if (p2) {
+        const res2 = await this.fetchDirData(p2, true);
+        if (res2) this.col2.setData(res2);
+      }
       await this.renderViewport();
     }
     cyberToast('目录已刷新', 'info', 1500);
@@ -299,10 +319,36 @@ export class FileManager {
   }
 
   /**
+   * 更新单个列的状态，若目录路径未变化则不触碰 DOM，完整保留滚动条位置与列表元素
+   */
+  private async updateColumnState(
+    col: DirectoryColumn,
+    targetPath: string | null,
+    activeChildPath: string | null
+  ): Promise<void> {
+    if (!targetPath) {
+      col.getElement().style.display = 'none';
+      col.setData(null);
+      return;
+    }
+
+    col.getElement().style.display = 'flex';
+
+    if (col.getCurrentPath() !== targetPath) {
+      const data = await this.fetchDirData(targetPath);
+      if (data) {
+        col.setData(data);
+      }
+    }
+
+    col.setActiveFolder(activeChildPath);
+  }
+
+  /**
    * 动态三窗口滑动视口渲染 (Sliding 3-Window Viewport)
    * 随着用户下钻/回退，三个窗口动态调整观察范围
    */
-  private async renderViewport(): Promise<void> {
+  private async renderViewport(scrollDirection: 'left' | 'right' | 'none' = 'none'): Promise<void> {
     if (this.navStack.length === 0) return;
 
     if (this.windowStart >= this.navStack.length) {
@@ -316,51 +362,29 @@ export class FileManager {
 
     const p0 = this.navStack[this.windowStart];
     const p1 = this.windowStart + 1 < this.navStack.length ? this.navStack[this.windowStart + 1] : null;
-    const p2 = this.windowStart + 2 < this.navStack.length ? this.navStack[this.windowStack + 2] : null;
+    const p2 = this.windowStart + 2 < this.navStack.length ? this.navStack[this.windowStart + 2] : null;
     const p3 = this.windowStart + 3 < this.navStack.length ? this.navStack[this.windowStart + 3] : null;
 
-    // Window 0 (col0): 始终可见
-    this.col0.getElement().style.display = 'flex';
-    const res0 = await this.fetchDirData(p0);
-    if (res0) {
-      this.col0.setData(res0);
-      this.col0.setActiveFolder(p1);
-    }
+    // Window 0 (col0): 始终为当前视口第一列
+    await this.updateColumnState(this.col0, p0, p1);
 
     // Window 1 (col1): 仅在下钻到 >=2 级时显示
-    if (p1) {
-      this.col1.getElement().style.display = 'flex';
-      const res1 = await this.fetchDirData(p1);
-      if (res1) {
-        this.col1.setData(res1);
-        this.col1.setActiveFolder(p2);
-      }
-    } else {
-      this.col1.getElement().style.display = 'none';
-      this.col1.setData(null);
-    }
+    await this.updateColumnState(this.col1, p1, p2);
 
     // Window 2 (col2): 仅在下钻到 >=3 级时显示
-    if (p2) {
-      this.col2.getElement().style.display = 'flex';
-      const res2 = await this.fetchDirData(p2);
-      if (res2) {
-        this.col2.setData(res2);
-        this.col2.setActiveFolder(p3);
-      }
-    } else {
-      this.col2.getElement().style.display = 'none';
-      this.col2.setData(null);
-    }
+    await this.updateColumnState(this.col2, p2, p3);
 
     // 渲染快捷层级面包屑条
     this.renderBreadcrumbBar();
     this.updateToolbarContext();
 
-    // 移动端/窄屏自动向右平滑滚动以露出最新窗口
+    // 视口容器平滑滚动同步
     requestAnimationFrame(() => {
-      if (this.threeColumnContainer) {
+      if (!this.threeColumnContainer) return;
+      if (scrollDirection === 'right') {
         this.threeColumnContainer.scrollLeft = this.threeColumnContainer.scrollWidth;
+      } else if (scrollDirection === 'left') {
+        this.threeColumnContainer.scrollLeft = 0;
       }
     });
   }
@@ -385,18 +409,18 @@ export class FileManager {
       this.windowStart = this.navStack.length - 3;
     }
 
-    await this.renderViewport();
+    await this.renderViewport('right');
   }
 
   /**
-   * 窗口内部向上返回（▲ 上级）
+   * 窗口内部向上返回（点击 .. 或 ▲ 上级）
    */
   private async handleColumnNavigateUp(windowIdx: number, parentPath: string): Promise<void> {
     if (windowIdx === 0) {
       if (this.windowStart > 0) {
-        // 视口整体向左滑动，观察更高层级
+        // 视口整体向左滑动，把父级目录加回视口
         this.windowStart -= 1;
-        await this.renderViewport();
+        await this.renderViewport('left');
       } else {
         // 当前视口已处于栈顶，向前追加父级目录
         const curRoot = this.navStack[0];
@@ -405,17 +429,17 @@ export class FileManager {
         if (targetParent) {
           this.navStack.unshift(targetParent);
           this.windowStart = 0;
-          await this.renderViewport();
+          await this.renderViewport('left');
         }
       }
     } else if (windowIdx === 1) {
       // 在 Window 1 上点上级：关闭 Window 1 和 2，回到 Window 0
       this.navStack = this.navStack.slice(0, this.windowStart + 1);
-      await this.renderViewport();
+      await this.renderViewport('left');
     } else if (windowIdx === 2) {
       // 在 Window 2 上点上级：关闭 Window 2，回到 Window 1
       this.navStack = this.navStack.slice(0, this.windowStart + 2);
-      await this.renderViewport();
+      await this.renderViewport('left');
     }
   }
 
@@ -524,11 +548,13 @@ export class FileManager {
     this.oneColumnContainer.style.display = 'flex';
 
     // 加载单栏数据
-    const parentData = await this.fetchDirData(parentDir);
-    if (parentData) {
-      this.singleCol.setData(parentData);
-      this.singleCol.setSelectedFile(file.path);
+    if (this.singleCol.getCurrentPath() !== parentDir) {
+      const parentData = await this.fetchDirData(parentDir);
+      if (parentData) {
+        this.singleCol.setData(parentData);
+      }
     }
+    this.singleCol.setSelectedFile(file.path);
 
     // 载入双栏预览
     await this.loadFilePreview(file.path);

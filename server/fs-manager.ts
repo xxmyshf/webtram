@@ -105,7 +105,7 @@ export class FsManager {
       const fullPath = path.join(resolved, ent.name);
       try {
         const itemStat = fs.statSync(fullPath);
-        const isDir = ent.isDirectory();
+        const isDir = itemStat.isDirectory();
         const isSymlink = ent.isSymbolicLink();
         const ext = isDir ? '' : path.extname(ent.name).toLowerCase();
         const mode = (itemStat.mode & 0o777).toString(8);
