@@ -77,37 +77,38 @@ export function ensureRuntimeEnvironment(rootDir = process.cwd(), initialPasswor
     }
   }
 
-  // 2. 检查并生成前端托管目录 dist/
+  // 2. 检查并生成/更新前端托管目录 dist/
   const distDir = path.resolve(rootDir, 'dist');
   const indexPath = path.resolve(distDir, 'index.html');
   const jsPath = path.resolve(distDir, 'webterm.js');
 
-  const hasIndex = fs.existsSync(indexPath);
-  const hasJs = fs.existsSync(jsPath);
+  if (!fs.existsSync(distDir)) {
+    try {
+      fs.mkdirSync(distDir, { recursive: true });
+    } catch {}
+  }
 
-  if (!hasIndex || !hasJs) {
-    if (!fs.existsSync(distDir)) {
-      try {
-        fs.mkdirSync(distDir, { recursive: true });
-      } catch {}
-    }
-
-    if (!hasIndex && EMBEDDED_INDEX_HTML) {
-      try {
+  if (EMBEDDED_INDEX_HTML) {
+    try {
+      const currentHtml = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf-8') : null;
+      if (currentHtml !== EMBEDDED_INDEX_HTML) {
         fs.writeFileSync(indexPath, EMBEDDED_INDEX_HTML, 'utf-8');
-        console.log(`[Static] 已在当前目录释放前端静态托管入口: ${indexPath}`);
-      } catch (err) {
-        console.warn(`[Static] 无法写入前端入口文件:`, err);
+        console.log(`[Static] 已在当前目录释放最新前端静态托管入口: ${indexPath}`);
       }
+    } catch (err) {
+      console.warn(`[Static] 无法写入前端入口文件:`, err);
     }
+  }
 
-    if (!hasJs && EMBEDDED_WEBTERM_JS) {
-      try {
+  if (EMBEDDED_WEBTERM_JS) {
+    try {
+      const currentJs = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf-8') : null;
+      if (currentJs !== EMBEDDED_WEBTERM_JS) {
         fs.writeFileSync(jsPath, EMBEDDED_WEBTERM_JS, 'utf-8');
-        console.log(`[Static] 已在当前目录释放前端全资源单 JS: ${jsPath}`);
-      } catch (err) {
-        console.warn(`[Static] 无法写入前端脚本文件:`, err);
+        console.log(`[Static] 已在当前目录释放最新前端全资源单 JS: ${jsPath}`);
       }
+    } catch (err) {
+      console.warn(`[Static] 无法写入前端脚本文件:`, err);
     }
   }
 }

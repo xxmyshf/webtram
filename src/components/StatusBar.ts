@@ -207,6 +207,11 @@ export class StatusBar {
         btn.classList.remove('active');
       }
     });
+
+    const center = this.container.querySelector<HTMLElement>('.bar-center');
+    if (center) {
+      center.style.display = view === 'terminal' ? 'flex' : 'none';
+    }
   }
 
   private initFontControls(): void {

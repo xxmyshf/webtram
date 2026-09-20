@@ -1839,7 +1839,8 @@ html, body {
   display: none;
   flex: 1;
   width: 100%;
-  height: calc(100vh - 44px);
+  height: calc(100dvh - 44px);
+  max-height: calc(100dvh - 44px);
   overflow: hidden;
   background: #080c14;
   color: #e1e7f0;
@@ -1847,6 +1848,13 @@ html, body {
   position: relative;
   z-index: 5;
   flex-direction: column;
+}
+
+@media (orientation: landscape) {
+  .cyber-file-manager {
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+  }
 }
 
 /* Toolbar */
