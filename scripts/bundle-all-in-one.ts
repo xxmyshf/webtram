@@ -74,6 +74,40 @@ async function bundleAllInOne() {
   console.log('\n[3/3] 正在使用 esbuild 打包前后端一体化单文件 (webterm.cjs)...');
   const outputFile = path.join(projectRoot, 'webterm.cjs');
 
+  // esbuild 插件：重写 node-pty/lib/utils.js 中的 loadNativeModule，使之在单文件打包运行环境下直接从 Release/prebuilds 查找并加载释放的原生模块
+  const patchNodePtyPlugin: esbuild.Plugin = {
+    name: 'patch-node-pty',
+    setup(build) {
+      build.onLoad({ filter: /node_modules\/node-pty\/lib\/utils\.js$/ }, async (args) => {
+        let source = await fs.promises.readFile(args.path, 'utf8');
+        source = source.replace(
+          /function loadNativeModule\(name\)\s*\{[\s\S]*?\n\}/,
+          `function loadNativeModule(name) {
+  var path = require("path");
+  var baseDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
+  var candidates = [
+    path.resolve(baseDir, "build/Release", name + ".node"),
+    path.resolve(baseDir, "prebuilds/" + process.platform + "-" + process.arch, name + ".node"),
+    path.resolve(process.cwd(), "build/Release", name + ".node"),
+    path.resolve(process.cwd(), "prebuilds/" + process.platform + "-" + process.arch, name + ".node")
+  ];
+  var lastError;
+  for (var i = 0; i < candidates.length; i++) {
+    var p = candidates[i];
+    try {
+      return { dir: path.dirname(p), module: require(p) };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error("Failed to load native module: " + name + ".node, checked: " + candidates.join(", ") + ": " + lastError);
+}`
+        );
+        return { contents: source, loader: 'js' };
+      });
+    }
+  };
+
   await esbuild.build({
     entryPoints: [path.join(projectRoot, 'server/index.ts')],
     bundle: true,
@@ -85,6 +119,7 @@ async function bundleAllInOne() {
       js: '#!/usr/bin/env node\n'
     },
     external: ['*.node'],
+    plugins: [patchNodePtyPlugin],
     define: {
       '__WEBTERM_EMBEDDED_INDEX_HTML__': JSON.stringify(indexHtmlContent),
       '__WEBTERM_EMBEDDED_WEBTERM_JS__': JSON.stringify(webtermJsContent),

@@ -136,6 +136,10 @@ export function ensureNativePtyBinary(): string | null {
   const releaseDir = path.resolve(baseDir, 'build/Release');
   const targetFile = path.resolve(releaseDir, 'pty.node');
 
+  // Also ensure prebuilds path exists: prebuilds/{platform}-{arch}/pty.node
+  const prebuildsDir = path.resolve(baseDir, `prebuilds/${currentPlatform}-${currentArch}`);
+  const prebuildsFile = path.resolve(prebuildsDir, 'pty.node');
+
   try {
     const expectedBuf = Buffer.from(ptyNodeBase64, 'base64');
     let needWrite = true;
@@ -158,6 +162,15 @@ export function ensureNativePtyBinary(): string | null {
       fs.writeFileSync(targetFile, expectedBuf);
       fs.chmodSync(targetFile, 0o755);
       console.log(`[PTY] 已释放适配架构 [${platformArchKey}] 的原生模块至: ${targetFile}`);
+    }
+
+    // Also write to prebuilds directory if not present or different
+    if (!fs.existsSync(prebuildsFile)) {
+      try {
+        fs.mkdirSync(prebuildsDir, { recursive: true });
+        fs.writeFileSync(prebuildsFile, expectedBuf);
+        fs.chmodSync(prebuildsFile, 0o755);
+      } catch {}
     }
 
     // 如果包含 spawn-helper (如 macOS)，也确保释放
