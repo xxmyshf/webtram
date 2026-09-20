@@ -29,6 +29,7 @@ class WebTermApp {
   private ws: WebSocket | null = null;
   private activeSessionId: string | null = null;
   private scope = '';
+  private ownedSessionIds: Set<string> = new Set();
   private cachedPassword = '';
   private isConnecting = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -52,6 +53,9 @@ class WebTermApp {
       this.activeSessionId = urlSessionId;
     } else {
       this.activeSessionId = localStorage.getItem(sessionStoreKey);
+    }
+    if (this.activeSessionId) {
+      this.ownedSessionIds.add(this.activeSessionId);
     }
     this.cachedPassword = localStorage.getItem('webterm_pwd') || sessionStorage.getItem('webterm_pwd') || '';
   }
@@ -303,6 +307,7 @@ class WebTermApp {
   }
 
   private handleSessionClosed(sessionId: string): void {
+    this.ownedSessionIds.delete(sessionId);
     this.multiTerminalManager.removeTerminal(sessionId);
     const tabs = this.sessionTabBar.getTabs().filter(t => t.id !== sessionId);
 
@@ -336,9 +341,18 @@ class WebTermApp {
 
     // Defensively isolate by scope if current app instance is scoped
     const filteredSessions = this.scope
-      ? sessions.filter(s => !s.scope || s.scope === this.scope)
+      ? sessions.filter(s => s.scope === this.scope || this.ownedSessionIds.has(s.id))
       : sessions;
-    const effectiveSessions = filteredSessions.length > 0 ? filteredSessions : sessions;
+
+    const effectiveSessions = filteredSessions.length > 0
+      ? filteredSessions
+      : (this.activeSessionId ? [{ id: this.activeSessionId, title: 'Terminal 1', scope: this.scope || undefined }] : []);
+
+    if (effectiveSessions.length === 0) return;
+
+    for (const s of effectiveSessions) {
+      this.ownedSessionIds.add(s.id);
+    }
 
     let targetActiveId = preferredActiveId || this.activeSessionId;
     // Check if targetActiveId actually exists in sessions
@@ -347,6 +361,7 @@ class WebTermApp {
     }
 
     this.activeSessionId = targetActiveId;
+    this.ownedSessionIds.add(targetActiveId);
     const sessionStoreKey = this.scope ? `webterm_session_id_${this.scope}` : 'webterm_session_id';
     localStorage.setItem(sessionStoreKey, targetActiveId);
 
@@ -469,14 +484,30 @@ class WebTermApp {
             this.startPingInterval();
             onAuthResult?.(true);
 
-            const serverSessions = Array.isArray(msg.sessions) && msg.sessions.length > 0
+            if (msg.sessionId) {
+              this.ownedSessionIds.add(msg.sessionId);
+            }
+
+            const rawSessions = Array.isArray(msg.sessions) && msg.sessions.length > 0
               ? msg.sessions
-              : [{ id: msg.sessionId, title: msg.title || 'Terminal 1' }];
+              : [{ id: msg.sessionId, title: msg.title || 'Terminal 1', scope: this.scope || undefined }];
 
-            this.updateSessionsList(serverSessions, msg.sessionId);
+            const serverSessions = this.scope
+              ? rawSessions.filter((s: any) => s && (s.scope === this.scope || this.ownedSessionIds.has(s.id)))
+              : rawSessions;
 
-            // Re-attach to all other sessions so background outputs stream in real-time
-            for (const s of serverSessions) {
+            const finalSessions = serverSessions.length > 0
+              ? serverSessions
+              : [{ id: msg.sessionId, title: msg.title || 'Terminal 1', scope: this.scope || undefined }];
+
+            for (const s of finalSessions) {
+              if (s && s.id) this.ownedSessionIds.add(s.id);
+            }
+
+            this.updateSessionsList(finalSessions, msg.sessionId);
+
+            // Re-attach to all other sessions in this scope so background outputs stream in real-time
+            for (const s of finalSessions) {
               if (s.id !== msg.sessionId && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({
                   type: 'session_attach',
@@ -528,6 +559,9 @@ class WebTermApp {
           }
 
           case 'session_created': {
+            if (msg.sessionId) {
+              this.ownedSessionIds.add(msg.sessionId);
+            }
             if (Array.isArray(msg.sessions)) {
               this.updateSessionsList(msg.sessions, msg.sessionId);
             } else {
@@ -561,6 +595,9 @@ class WebTermApp {
           case 'history': {
             const sid = msg.sessionId || this.activeSessionId;
             if (sid) {
+              if (this.scope && !this.ownedSessionIds.has(sid)) {
+                break;
+              }
               const term = this.multiTerminalManager.getOrCreateTerminal(sid);
               term.clear();
               term.write(msg.data);
@@ -571,6 +608,9 @@ class WebTermApp {
           case 'output': {
             const sid = msg.sessionId || this.activeSessionId;
             if (sid) {
+              if (this.scope && !this.ownedSessionIds.has(sid)) {
+                break;
+              }
               this.multiTerminalManager.write(sid, msg.data);
             }
             break;
