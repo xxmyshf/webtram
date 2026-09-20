@@ -119,7 +119,7 @@ export function ensureRuntimeEnvironment(rootDir = process.cwd(), initialPasswor
  */
 export function ensureNativePtyBinary(): string | null {
   const currentPlatform = process.platform;
-  const rawArch = process.arch;
+  const rawArch = process.arch as string;
   // 标准化架构标识 (aarch64 -> arm64, x86_64/amd64 -> x64)
   const currentArch = (rawArch === 'aarch64' || rawArch === 'arm64') ? 'arm64' : (rawArch === 'x64' || rawArch === 'amd64') ? 'x64' : rawArch;
   const platformArchKey = `${currentPlatform}-${currentArch}`;

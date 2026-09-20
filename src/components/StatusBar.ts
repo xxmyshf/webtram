@@ -56,6 +56,8 @@ export class StatusBar {
         </div>
       </div>
 
+      <div class="bar-center"></div>
+
       <div class="bar-right">
         <!-- Font Size Adjustment Button & Popover -->
         <div class="font-control-wrapper">
@@ -344,5 +346,13 @@ export class StatusBar {
 
   public setSessionId(_id: string): void {
     // Session badge removed per user request
+  }
+
+  public setTabBar(tabBarElement: HTMLElement): void {
+    const center = this.container.querySelector('.bar-center');
+    if (center) {
+      center.innerHTML = '';
+      center.appendChild(tabBarElement);
+    }
   }
 }

@@ -1,4 +1,5 @@
-import { TerminalManager } from './components/TerminalManager.js';
+import { MultiTerminalManager } from './components/MultiTerminalManager.js';
+import { SessionTabBar, SessionTabInfo } from './components/SessionTabBar.js';
 import { VirtualKeyboard } from './components/VirtualKeyboard.js';
 import { StatusBar } from './components/StatusBar.js';
 import { AuthModal } from './components/AuthModal.js';
@@ -12,7 +13,8 @@ import { getTerminalConfig } from './config.js';
 import './style.css';
 
 class WebTermApp {
-  private terminalManager!: TerminalManager;
+  private multiTerminalManager!: MultiTerminalManager;
+  private sessionTabBar!: SessionTabBar;
   private virtualKeyboard!: VirtualKeyboard;
   private statusBar!: StatusBar;
   private authModal!: AuthModal;
@@ -25,7 +27,7 @@ class WebTermApp {
   private currentView: 'terminal' | 'files' = 'terminal';
 
   private ws: WebSocket | null = null;
-  private sessionId: string | null = null;
+  private activeSessionId: string | null = null;
   private cachedPassword = '';
   private isConnecting = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -43,9 +45,9 @@ class WebTermApp {
     this.isRestore = urlParams.get('restore') === 'true' || urlParams.get('restore') === '1';
 
     if (urlSessionId) {
-      this.sessionId = urlSessionId;
+      this.activeSessionId = urlSessionId;
     } else {
-      this.sessionId = localStorage.getItem('webterm_session_id');
+      this.activeSessionId = localStorage.getItem('webterm_session_id');
     }
     this.cachedPassword = localStorage.getItem('webterm_pwd') || sessionStorage.getItem('webterm_pwd') || '';
   }
@@ -68,24 +70,44 @@ class WebTermApp {
       onOpenPasswordModal: () => this.passwordChangeModal.show(),
       onOpenASRModal: () => this.asrConfigModal.show(),
       onToggleNativeIME: () => this.nativeIMEBridge.toggle(),
-      onGetFontSize: () => this.terminalManager.getFontSize(),
-      onSetFontSize: (size) => this.terminalManager.setFontSize(size),
+      onGetFontSize: () => this.multiTerminalManager.getFontSize(),
+      onSetFontSize: (size) => this.multiTerminalManager.setFontSize(size),
       onSwitchView: (view) => this.switchView(view)
     });
     appEl.appendChild(this.statusBar.getElement());
 
-    // 3. Terminal Container (MIDDLE)
+    // 3. Session Tab Bar (embedded in StatusBar center)
+    this.sessionTabBar = new SessionTabBar({
+      onSelectSession: (id) => {
+        this.selectSession(id);
+        if (this.currentView === 'files') {
+          this.switchView('terminal');
+        }
+      },
+      onCreateSession: () => {
+        this.createSession();
+        if (this.currentView === 'files') {
+          this.switchView('terminal');
+        }
+      },
+      onCloseSession: (id) => this.closeSession(id),
+      onRenameSession: (id, newTitle) => this.renameSession(id, newTitle)
+    });
+    this.statusBar.setTabBar(this.sessionTabBar.getElement());
+
+    // 4. Terminal Container (MIDDLE)
     this.termWrapper = document.createElement('div');
     this.termWrapper.className = 'terminal-wrapper';
     appEl.appendChild(this.termWrapper);
 
-    this.terminalManager = new TerminalManager({
+    this.multiTerminalManager = new MultiTerminalManager({
       container: this.termWrapper,
-      onInput: (data) => this.sendInput(data),
-      onResize: (cols, rows) => this.sendResize(cols, rows)
+      onInput: (sessionId, data) => this.sendInput(data, sessionId),
+      onResize: (sessionId, cols, rows) => this.sendResize(sessionId, cols, rows),
+      onUnread: (sessionId) => this.sessionTabBar.setUnread(sessionId, true)
     });
 
-    // 4. File Manager (Coexists with terminal, toggled by view switch)
+    // 5. File Manager (Coexists with terminal, toggled by view switch)
     this.fileManager = new FileManager({
       sendWsMessage: (msg) => this.sendWsJson(msg),
       getAuthPassword: () => this.cachedPassword,
@@ -97,13 +119,12 @@ class WebTermApp {
     });
     appEl.appendChild(this.fileManager.getElement());
     this.fileManager.hide();
-
     // 5. Virtual Keyboard (BOTTOM - in flex flow so it never overlaps terminal)
     this.virtualKeyboard = new VirtualKeyboard({
       onInput: (data) => this.sendInput(data),
-      onResizeTrigger: () => this.terminalManager.fit(),
+      onResizeTrigger: () => this.multiTerminalManager.fit(),
       onToggleNativeIME: () => this.nativeIMEBridge.toggle(),
-      onScrollTerminal: (deltaY) => this.terminalManager.scrollByDeltaY(deltaY),
+      onScrollTerminal: (deltaY) => this.multiTerminalManager.scrollByDeltaY(deltaY),
       speechManager: this.speechManager
     });
     appEl.appendChild(this.virtualKeyboard.getElement());
@@ -113,11 +134,11 @@ class WebTermApp {
       onInput: (data) => this.sendInput(data),
       onActivate: () => {
         this.virtualKeyboard.hide();
-        setTimeout(() => this.terminalManager.fit(), 100);
+        setTimeout(() => this.multiTerminalManager.fit(), 100);
       },
       onDeactivate: () => {
         this.virtualKeyboard.show();
-        setTimeout(() => this.terminalManager.fit(), 100);
+        setTimeout(() => this.multiTerminalManager.fit(), 100);
       }
     });
 
@@ -153,11 +174,11 @@ class WebTermApp {
       const { type, cmd, sessionId } = event.data;
       if (type === 'RUN_COMMAND' && typeof cmd === 'string') {
         const toSend = cmd.endsWith('\n') || cmd.endsWith('\r') ? cmd : cmd + '\r';
-        this.sendInput(toSend);
+        this.sendInput(toSend, sessionId);
       } else if (type === 'FOCUS') {
-        this.terminalManager.focus();
+        this.multiTerminalManager.focus();
       } else if (type === 'FIT') {
-        this.terminalManager.fit();
+        this.multiTerminalManager.fit();
       }
     });
 
@@ -193,7 +214,7 @@ class WebTermApp {
   private lastInputTime = 0;
   private lastInputData = '';
 
-  private sendInput(data: string): void {
+  private sendInput(data: string, targetSessionId?: string): void {
     const now = Date.now();
     // Guard against identical duplicate input within 60ms
     if (data === this.lastInputData && now - this.lastInputTime < 60) {
@@ -202,26 +223,141 @@ class WebTermApp {
     this.lastInputTime = now;
     this.lastInputData = data;
 
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    const sid = targetSessionId || this.activeSessionId;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && sid) {
       this.ws.send(JSON.stringify({
         type: 'input',
+        sessionId: sid,
         data
       }));
     }
   }
 
-  private sendResize(cols: number, rows: number): void {
+  private sendResize(sessionId: string, cols: number, rows: number): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'resize',
+        sessionId,
         cols,
         rows
       }));
     }
   }
 
+  private selectSession(sessionId: string): void {
+    this.activeSessionId = sessionId;
+    localStorage.setItem('webterm_session_id', sessionId);
+    this.multiTerminalManager.getOrCreateTerminal(sessionId);
+    this.multiTerminalManager.switchSession(sessionId);
+    this.sessionTabBar.setActiveTab(sessionId);
+
+    // Ensure session is attached on WebSocket
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'session_attach',
+        sessionId,
+        cols: this.multiTerminalManager.getCols(),
+        rows: this.multiTerminalManager.getRows()
+      }));
+    }
+  }
+
+  private createSession(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const curTabs = this.sessionTabBar.getTabs();
+      const title = `term-${curTabs.length + 1}`;
+      this.ws.send(JSON.stringify({
+        type: 'session_create',
+        title,
+        cols: this.multiTerminalManager.getCols(),
+        rows: this.multiTerminalManager.getRows()
+      }));
+    }
+  }
+
+  private closeSession(sessionId: string): void {
+    const tabs = this.sessionTabBar.getTabs();
+    if (tabs.length <= 1) {
+      const confirmed = window.confirm('当前仅剩一个终端，关闭将重置并新建终端，是否继续？');
+      if (!confirmed) return;
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'session_kill', sessionId }));
+        this.createSession();
+      }
+      return;
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'session_kill',
+        sessionId
+      }));
+    }
+    this.handleSessionClosed(sessionId);
+  }
+
+  private handleSessionClosed(sessionId: string): void {
+    this.multiTerminalManager.removeTerminal(sessionId);
+    const tabs = this.sessionTabBar.getTabs().filter(t => t.id !== sessionId);
+
+    let nextActive = this.activeSessionId;
+    if (nextActive === sessionId) {
+      nextActive = tabs.length > 0 ? tabs[tabs.length - 1].id : null;
+    }
+
+    this.sessionTabBar.setTabs(tabs.map(t => ({
+      ...t,
+      active: t.id === nextActive
+    })));
+
+    if (nextActive) {
+      this.selectSession(nextActive);
+    }
+  }
+
+  private renameSession(sessionId: string, newTitle: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'session_rename',
+        sessionId,
+        title: newTitle
+      }));
+    }
+  }
+
+  private updateSessionsList(sessions: Array<{ id: string; title: string }>, preferredActiveId?: string): void {
+    if (!sessions || sessions.length === 0) return;
+
+    let targetActiveId = preferredActiveId || this.activeSessionId;
+    // Check if targetActiveId actually exists in sessions
+    if (!targetActiveId || !sessions.some(s => s.id === targetActiveId)) {
+      targetActiveId = sessions[0].id;
+    }
+
+    this.activeSessionId = targetActiveId;
+    localStorage.setItem('webterm_session_id', targetActiveId);
+
+    const curTabs = this.sessionTabBar.getTabs();
+    const newTabs: SessionTabInfo[] = sessions.map(s => {
+      const existing = curTabs.find(t => t.id === s.id);
+      return {
+        id: s.id,
+        title: s.title,
+        active: s.id === targetActiveId,
+        hasUnread: existing ? existing.hasUnread : false
+      };
+    });
+
+    this.sessionTabBar.setTabs(newTabs);
+
+    for (const s of sessions) {
+      this.multiTerminalManager.getOrCreateTerminal(s.id);
+    }
+
+    this.multiTerminalManager.switchSession(targetActiveId);
+  }
+
   private async tryAuthenticate(password: string): Promise<boolean> {
-    // Encrypt password on frontend with SHA-256 before transmission
     const hash = await hashPassword(password);
     this.cachedPassword = hash;
 
@@ -250,7 +386,6 @@ class WebTermApp {
       this.reconnectTimer = null;
     }
 
-    // Clean up any existing connection before opening a new one
     if (this.ws) {
       const oldWs = this.ws;
       this.ws = null;
@@ -279,13 +414,12 @@ class WebTermApp {
     }
 
     this.ws.onopen = () => {
-      // Send hashed password over WebSocket
       this.ws!.send(JSON.stringify({
         type: 'auth',
         password: this.cachedPassword,
-        sessionId: this.sessionId,
-        cols: this.terminalManager.getCols() || 80,
-        rows: this.terminalManager.getRows() || 24
+        sessionId: this.activeSessionId,
+        cols: this.multiTerminalManager.getCols() || 80,
+        rows: this.multiTerminalManager.getRows() || 24
       }));
     };
 
@@ -313,23 +447,36 @@ class WebTermApp {
           case 'auth_ok': {
             this.isConnecting = false;
             this.reconnectAttempts = 0;
-            this.sessionId = msg.sessionId;
-            localStorage.setItem('webterm_session_id', msg.sessionId);
-            this.statusBar.setSessionId(msg.sessionId);
             this.statusBar.setConnectionState('online');
             this.authModal.hide();
-
             if (this.currentView === 'files') {
               this.fileManager.refreshCurrentDir();
             }
-
-            // Only auto-focus on non-touch desktop to avoid popping up mobile OS keyboard
-            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-            if (!isTouch) {
-              this.terminalManager.focus();
-            }
             this.startPingInterval();
             onAuthResult?.(true);
+
+            const serverSessions = Array.isArray(msg.sessions) && msg.sessions.length > 0
+              ? msg.sessions
+              : [{ id: msg.sessionId, title: msg.title || 'Terminal 1' }];
+
+            this.updateSessionsList(serverSessions, msg.sessionId);
+
+            // Re-attach to all other sessions so background outputs stream in real-time
+            for (const s of serverSessions) {
+              if (s.id !== msg.sessionId && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({
+                  type: 'session_attach',
+                  sessionId: s.id,
+                  cols: this.multiTerminalManager.getCols(),
+                  rows: this.multiTerminalManager.getRows()
+                }));
+              }
+            }
+
+            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (!isTouch) {
+              this.multiTerminalManager.focus();
+            }
 
             // Notify parent WebTerm Manager
             try {
@@ -340,14 +487,14 @@ class WebTermApp {
               }, '*');
             } catch {}
 
-            // Execute startup command if this is a fresh conversation (not a restored conversation)
+            // Execute startup command if fresh conversation
             if (this.startupCmd && !this.isRestore && !this.startupCmdExecuted) {
               this.startupCmdExecuted = true;
               setTimeout(() => {
                 const cmdToSend = this.startupCmd.endsWith('\n') || this.startupCmd.endsWith('\r')
                   ? this.startupCmd
                   : this.startupCmd + '\r';
-                this.sendInput(cmdToSend);
+                this.sendInput(cmdToSend, msg.sessionId);
                 try {
                   window.parent.postMessage({
                     type: 'WEBTERM_STARTUP_EXECUTED',
@@ -355,6 +502,70 @@ class WebTermApp {
                   }, '*');
                 } catch {}
               }, 350);
+            }
+            break;
+          }
+
+          case 'session_list': {
+            if (Array.isArray(msg.sessions)) {
+              this.updateSessionsList(msg.sessions, this.activeSessionId || undefined);
+            }
+            break;
+          }
+
+          case 'session_created': {
+            if (Array.isArray(msg.sessions)) {
+              this.updateSessionsList(msg.sessions, msg.sessionId);
+            } else {
+              this.multiTerminalManager.getOrCreateTerminal(msg.sessionId);
+              this.selectSession(msg.sessionId);
+            }
+            break;
+          }
+
+          case 'session_list_updated': {
+            if (Array.isArray(msg.sessions)) {
+              this.updateSessionsList(msg.sessions, this.activeSessionId || undefined);
+            }
+            break;
+          }
+
+          case 'session_renamed': {
+            if (msg.sessionId && msg.title) {
+              this.sessionTabBar.updateTab(msg.sessionId, { title: msg.title });
+            }
+            break;
+          }
+
+          case 'session_closed': {
+            if (msg.sessionId) {
+              this.handleSessionClosed(msg.sessionId);
+            }
+            break;
+          }
+
+          case 'history': {
+            const sid = msg.sessionId || this.activeSessionId;
+            if (sid) {
+              const term = this.multiTerminalManager.getOrCreateTerminal(sid);
+              term.clear();
+              term.write(msg.data);
+            }
+            break;
+          }
+
+          case 'output': {
+            const sid = msg.sessionId || this.activeSessionId;
+            if (sid) {
+              this.multiTerminalManager.write(sid, msg.data);
+            }
+            break;
+          }
+
+          case 'exit': {
+            const sid = msg.sessionId || this.activeSessionId;
+            if (sid) {
+              this.multiTerminalManager.write(sid, '\r\n\x1b[33m[Session process terminated]\x1b[0m\r\n');
             }
             break;
           }
@@ -367,7 +578,8 @@ class WebTermApp {
             }
             this.statusBar.setConnectionState('offline');
             const errDetail = msg.error || '目标服务连接异常';
-            this.terminalManager.write(`\r\n\x1b[31m[Connection Error] ${errDetail}\x1b[0m\r\n`);
+            const curTerm = this.multiTerminalManager.getActiveTerminal();
+            curTerm?.write(`\r\n\x1b[31m[Connection Error] ${errDetail}\x1b[0m\r\n`);
             break;
           }
 
@@ -382,7 +594,8 @@ class WebTermApp {
               this.reconnectTimer = null;
             }
             this.statusBar.setConnectionState('offline');
-            this.terminalManager.write(`\r\n\x1b[31m[Auth Failed] ${msg.error || '节点访问密码不匹配'}\x1b[0m\r\n`);
+            const curTerm = this.multiTerminalManager.getActiveTerminal();
+            curTerm?.write(`\r\n\x1b[31m[Auth Failed] ${msg.error || '节点访问密码不匹配'}\x1b[0m\r\n`);
 
             if (onAuthResult) {
               onAuthResult(false);
@@ -405,25 +618,9 @@ class WebTermApp {
             break;
           }
 
-          case 'history': {
-            this.terminalManager.clear();
-            this.terminalManager.write(msg.data);
-            break;
-          }
-
-          case 'output': {
-            this.terminalManager.write(msg.data);
-            break;
-          }
-
           case 'pong': {
             const rtt = Date.now() - this.pingStartTs;
             this.statusBar.setPing(rtt);
-            break;
-          }
-
-          case 'exit': {
-            this.terminalManager.write('\r\n\x1b[33m[Session process terminated]\x1b[0m\r\n');
             break;
           }
         }
@@ -465,9 +662,10 @@ class WebTermApp {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer || !this.cachedPassword) return;
-    if (this.reconnectAttempts >= 5) {
+    if (this.reconnectAttempts >= 10) {
       this.statusBar.setConnectionState('offline');
-      this.terminalManager.write('\r\n\x1b[33m[WebTerm] 连续重连失败达到上限 (5次)，已停止重试。请检查目标节点服务状态或手动点击右上角重连。\x1b[0m\r\n');
+      const curTerm = this.multiTerminalManager.getActiveTerminal();
+      curTerm?.write('\r\n\x1b[33m[WebTerm] 连续重连失败达到上限，已暂停自动重试。请检查目标节点服务状态或手动点击右上角重连。\x1b[0m\r\n');
       return;
     }
     this.reconnectAttempts++;
@@ -490,7 +688,13 @@ class WebTermApp {
       this.fileManager.hide();
       this.termWrapper.style.display = 'flex';
       this.virtualKeyboard.show();
-      setTimeout(() => this.terminalManager.fit(), 50);
+      setTimeout(() => {
+        this.multiTerminalManager.fit();
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (!isTouch) {
+          this.multiTerminalManager.focus();
+        }
+      }, 50);
     }
   }
 
