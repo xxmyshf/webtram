@@ -4,6 +4,7 @@ import { RingBuffer } from './ring-buffer.js';
 
 export interface TerminalSession {
   id: string;
+  title: string;
   ptyProcess: IPty;
   ringBuffer: RingBuffer;
   clients: Set<WebSocket>;
@@ -23,14 +24,15 @@ export class PtyManager {
   constructor(
     defaultShell = process.env.DEFAULT_SHELL || (process.platform === 'win32' ? 'powershell.exe' : '/bin/bash'),
     maxHistoryLines = parseInt(process.env.MAX_HISTORY_LINES || '2000', 10),
-    timeoutMinutes = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30', 10)
+    // Default 0 means persistent / never kill on disconnect (like tmux server)
+    timeoutMinutes = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '0', 10)
   ) {
     this.defaultShell = defaultShell;
     this.maxHistoryLines = maxHistoryLines;
-    this.timeoutMs = timeoutMinutes * 60 * 1000;
+    this.timeoutMs = timeoutMinutes > 0 ? timeoutMinutes * 60 * 1000 : 0;
   }
 
-  public getOrCreateSession(sessionId: string, initialCols = 80, initialRows = 24): TerminalSession {
+  public getOrCreateSession(sessionId: string, initialCols = 80, initialRows = 24, initialTitle?: string): TerminalSession {
     let session = this.sessions.get(sessionId);
 
     if (session) {
@@ -41,10 +43,14 @@ export class PtyManager {
         console.log(`[PtyManager] Session resumed: ${sessionId}`);
       }
       session.lastActiveAt = Date.now();
+      if (initialTitle) {
+        session.title = initialTitle;
+      }
       return session;
     }
 
-    console.log(`[PtyManager] Creating new session: ${sessionId} (${initialCols}x${initialRows})`);
+    const defaultTitle = initialTitle || `term-${this.sessions.size + 1}`;
+    console.log(`[PtyManager] Creating new session: ${sessionId} (${defaultTitle}, ${initialCols}x${initialRows})`);
     const ringBuffer = new RingBuffer(this.maxHistoryLines);
 
     const env = {
@@ -65,6 +71,7 @@ export class PtyManager {
 
     session = {
       id: sessionId,
+      title: defaultTitle,
       ptyProcess,
       ringBuffer,
       clients: new Set<WebSocket>(),
@@ -81,6 +88,7 @@ export class PtyManager {
 
       const message = JSON.stringify({
         type: 'output',
+        sessionId,
         data
       });
 
@@ -95,6 +103,7 @@ export class PtyManager {
       console.log(`[PtyManager] Process exited for session ${sessionId}: code=${exitCode}, signal=${signal}`);
       const exitMsg = JSON.stringify({
         type: 'exit',
+        sessionId,
         exitCode,
         signal
       });
@@ -115,12 +124,9 @@ export class PtyManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    // Prune any stale or duplicate sockets for this session to prevent duplicate character broadcast
-    for (const oldClient of session.clients) {
-      if (oldClient !== ws) {
-        try {
-          oldClient.close();
-        } catch {}
+    // Prune closed sockets for this session
+    for (const oldClient of Array.from(session.clients)) {
+      if (oldClient !== ws && (oldClient.readyState === WebSocket.CLOSED || oldClient.readyState === WebSocket.CLOSING)) {
         session.clients.delete(oldClient);
       }
     }
@@ -141,8 +147,9 @@ export class PtyManager {
     session.clients.delete(ws);
     console.log(`[PtyManager] Client detached from session ${sessionId}, remaining clients: ${session.clients.size}`);
 
-    // If no clients left, schedule session teardown after timeoutMs
-    if (session.clients.size === 0 && !session.cleanupTimer) {
+    // If no clients left and timeoutMs > 0, schedule session teardown
+    // (If timeoutMs === 0, session runs persistently like tmux daemon)
+    if (this.timeoutMs > 0 && session.clients.size === 0 && !session.cleanupTimer) {
       console.log(`[PtyManager] Scheduling cleanup for inactive session ${sessionId} in ${this.timeoutMs / 1000}s`);
       session.cleanupTimer = setTimeout(() => {
         console.log(`[PtyManager] Timeout reached for abandoned session ${sessionId}. Destroying.`);
@@ -172,6 +179,13 @@ export class PtyManager {
     }
   }
 
+  public renameSession(sessionId: string, newTitle: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    session.title = newTitle.trim() || session.title;
+    return true;
+  }
+
   public destroySession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
@@ -179,6 +193,18 @@ export class PtyManager {
     if (session.cleanupTimer) {
       clearTimeout(session.cleanupTimer);
       session.cleanupTimer = null;
+    }
+
+    const closeMsg = JSON.stringify({
+      type: 'session_closed',
+      sessionId
+    });
+    for (const client of session.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(closeMsg);
+        } catch {}
+      }
     }
 
     try {
@@ -201,6 +227,18 @@ export class PtyManager {
 
   public getSession(sessionId: string): TerminalSession | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  public getAllSessions(): Array<{ id: string; title: string; cols: number; rows: number; createdAt: number; lastActiveAt: number; clientCount: number }> {
+    return Array.from(this.sessions.values()).map(s => ({
+      id: s.id,
+      title: s.title,
+      cols: s.cols,
+      rows: s.rows,
+      createdAt: s.createdAt,
+      lastActiveAt: s.lastActiveAt,
+      clientCount: s.clients.size
+    }));
   }
 
   public getAllSessionsInfo(): Array<{ id: string; clientCount: number; ageMinutes: number }> {

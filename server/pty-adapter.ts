@@ -1,7 +1,11 @@
 import { ensureNativePtyBinary } from './embedded-assets.js';
 import type * as nodePtyType from 'node-pty';
+import { createRequire } from 'module';
+import path from 'path';
 
-declare const require: any;
+const customRequire = typeof require !== 'undefined'
+  ? require
+  : createRequire(path.resolve(process.cwd(), 'package.json'));
 let ptyInstance: typeof nodePtyType | null = null;
 
 export function getPty(): typeof nodePtyType {
@@ -12,7 +16,7 @@ export function getPty(): typeof nodePtyType {
 
   // 2. 加载 node-pty (esbuild 会将 node-pty 的 JS 代码完整打包进 bundle)
   try {
-    ptyInstance = require('node-pty');
+    ptyInstance = customRequire('node-pty');
     return ptyInstance!;
   } catch (err) {
     console.error('[PTY] 载入 node-pty 失败:', err);
