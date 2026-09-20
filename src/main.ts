@@ -28,6 +28,7 @@ class WebTermApp {
 
   private ws: WebSocket | null = null;
   private activeSessionId: string | null = null;
+  private scope = '';
   private cachedPassword = '';
   private isConnecting = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -41,13 +42,16 @@ class WebTermApp {
   constructor() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSessionId = urlParams.get('sessionId') || urlParams.get('session');
+    const config = getTerminalConfig();
+    this.scope = urlParams.get('scope') || urlParams.get('conversationId') || urlParams.get('convId') || config.scope || config.conversationId || '';
     this.startupCmd = urlParams.get('cmd') || urlParams.get('run') || '';
     this.isRestore = urlParams.get('restore') === 'true' || urlParams.get('restore') === '1';
 
+    const sessionStoreKey = this.scope ? `webterm_session_id_${this.scope}` : 'webterm_session_id';
     if (urlSessionId) {
       this.activeSessionId = urlSessionId;
     } else {
-      this.activeSessionId = localStorage.getItem('webterm_session_id');
+      this.activeSessionId = localStorage.getItem(sessionStoreKey);
     }
     this.cachedPassword = localStorage.getItem('webterm_pwd') || sessionStorage.getItem('webterm_pwd') || '';
   }
@@ -246,7 +250,8 @@ class WebTermApp {
 
   private selectSession(sessionId: string): void {
     this.activeSessionId = sessionId;
-    localStorage.setItem('webterm_session_id', sessionId);
+    const sessionStoreKey = this.scope ? `webterm_session_id_${this.scope}` : 'webterm_session_id';
+    localStorage.setItem(sessionStoreKey, sessionId);
     this.multiTerminalManager.getOrCreateTerminal(sessionId);
     this.multiTerminalManager.switchSession(sessionId);
     this.sessionTabBar.setActiveTab(sessionId);
@@ -269,6 +274,7 @@ class WebTermApp {
       this.ws.send(JSON.stringify({
         type: 'session_create',
         title,
+        scope: this.scope || undefined,
         cols: this.multiTerminalManager.getCols(),
         rows: this.multiTerminalManager.getRows()
       }));
@@ -325,20 +331,27 @@ class WebTermApp {
     }
   }
 
-  private updateSessionsList(sessions: Array<{ id: string; title: string }>, preferredActiveId?: string): void {
+  private updateSessionsList(sessions: Array<{ id: string; title: string; scope?: string }>, preferredActiveId?: string): void {
     if (!sessions || sessions.length === 0) return;
+
+    // Defensively isolate by scope if current app instance is scoped
+    const filteredSessions = this.scope
+      ? sessions.filter(s => !s.scope || s.scope === this.scope)
+      : sessions;
+    const effectiveSessions = filteredSessions.length > 0 ? filteredSessions : sessions;
 
     let targetActiveId = preferredActiveId || this.activeSessionId;
     // Check if targetActiveId actually exists in sessions
-    if (!targetActiveId || !sessions.some(s => s.id === targetActiveId)) {
-      targetActiveId = sessions[0].id;
+    if (!targetActiveId || !effectiveSessions.some(s => s.id === targetActiveId)) {
+      targetActiveId = effectiveSessions[0].id;
     }
 
     this.activeSessionId = targetActiveId;
-    localStorage.setItem('webterm_session_id', targetActiveId);
+    const sessionStoreKey = this.scope ? `webterm_session_id_${this.scope}` : 'webterm_session_id';
+    localStorage.setItem(sessionStoreKey, targetActiveId);
 
     const curTabs = this.sessionTabBar.getTabs();
-    const newTabs: SessionTabInfo[] = sessions.map(s => {
+    const newTabs: SessionTabInfo[] = effectiveSessions.map(s => {
       const existing = curTabs.find(t => t.id === s.id);
       return {
         id: s.id,
@@ -350,7 +363,7 @@ class WebTermApp {
 
     this.sessionTabBar.setTabs(newTabs);
 
-    for (const s of sessions) {
+    for (const s of effectiveSessions) {
       this.multiTerminalManager.getOrCreateTerminal(s.id);
     }
 
@@ -418,6 +431,7 @@ class WebTermApp {
         type: 'auth',
         password: this.cachedPassword,
         sessionId: this.activeSessionId,
+        scope: this.scope || undefined,
         cols: this.multiTerminalManager.getCols() || 80,
         rows: this.multiTerminalManager.getRows() || 24
       }));

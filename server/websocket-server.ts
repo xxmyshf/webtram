@@ -10,6 +10,7 @@ interface ClientContext {
   ws: WebSocket;
   authenticated: boolean;
   primarySessionId: string | null;
+  scope?: string;
   activeSessions: Set<string>;
   lastPing: number;
 }
@@ -20,16 +21,19 @@ export function setupWebSocketServer(
   fsManager: FsManager = new FsManager()
 ): WebSocketServer {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const clients = new Map<WebSocket, ClientContext>();
 
   console.log(`[WebSocket] Server initialized on /ws (Auth required)`);
 
-  const broadcastAuthenticated = (msg: object) => {
+  const broadcastToScope = (scope: string | undefined, msg: object) => {
     const payload = JSON.stringify(msg);
-    for (const client of wss.clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(payload);
-        } catch {}
+    for (const [clientWs, clientCtx] of clients.entries()) {
+      if (clientWs.readyState === WebSocket.OPEN && clientCtx.authenticated) {
+        if (scope ? clientCtx.scope === scope : !clientCtx.scope) {
+          try {
+            clientWs.send(payload);
+          } catch {}
+        }
       }
     }
   };
@@ -42,9 +46,11 @@ export function setupWebSocketServer(
       ws,
       authenticated: false,
       primarySessionId: null,
+      scope: undefined,
       activeSessions: new Set<string>(),
       lastPing: Date.now()
     };
+    clients.set(ws, ctx);
 
     ws.on('message', (messageRaw: string | Buffer) => {
       try {
@@ -53,7 +59,7 @@ export function setupWebSocketServer(
 
         switch (payload.type) {
           case 'auth': {
-            const { password, sessionId, cols, rows, title } = payload;
+            const { password, sessionId, scope, cols, rows, title } = payload;
             if (!verifyPassword(password)) {
               console.warn(`[WebSocket] Auth failure from ${ip}`);
               ws.send(JSON.stringify({
@@ -65,6 +71,12 @@ export function setupWebSocketServer(
 
             // Auth succeeded
             ctx.authenticated = true;
+            const queryScope = req.url ? new URL(req.url, 'http://localhost').searchParams.get('scope') : undefined;
+            const effectiveScope = (typeof scope === 'string' && scope.trim().length > 0)
+              ? scope.trim()
+              : (queryScope && queryScope.trim().length > 0 ? queryScope.trim() : undefined);
+            ctx.scope = effectiveScope;
+
             const targetSessionId = (sessionId && typeof sessionId === 'string' && sessionId.trim().length > 0)
               ? sessionId.trim()
               : `term-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
@@ -75,18 +87,19 @@ export function setupWebSocketServer(
             const initialCols = cols && Number.isInteger(cols) ? cols : 80;
             const initialRows = rows && Number.isInteger(rows) ? rows : 24;
 
-            const session = ptyManager.getOrCreateSession(targetSessionId, initialCols, initialRows, title);
+            const session = ptyManager.getOrCreateSession(targetSessionId, initialCols, initialRows, title, ctx.scope);
             ptyManager.attachClient(targetSessionId, ws);
 
-            console.log(`[WebSocket] Client authenticated for session ${targetSessionId} (${session.title})`);
+            console.log(`[WebSocket] Client authenticated for session ${targetSessionId} (scope: ${ctx.scope || 'none'}, title: ${session.title})`);
 
             ws.send(JSON.stringify({
               type: 'auth_ok',
               sessionId: targetSessionId,
+              scope: ctx.scope,
               title: session.title,
               cols: session.cols,
               rows: session.rows,
-              sessions: ptyManager.getAllSessions()
+              sessions: ptyManager.getSessionsForScope(ctx.scope)
             }));
 
             // Replay history if existing
@@ -103,9 +116,10 @@ export function setupWebSocketServer(
 
           case 'session_list': {
             if (!ctx.authenticated) return;
+            const queryScope = (payload.scope && typeof payload.scope === 'string') ? payload.scope.trim() : ctx.scope;
             ws.send(JSON.stringify({
               type: 'session_list',
-              sessions: ptyManager.getAllSessions()
+              sessions: ptyManager.getSessionsForScope(queryScope)
             }));
             break;
           }
@@ -113,29 +127,33 @@ export function setupWebSocketServer(
           case 'session_create': {
             if (!ctx.authenticated) return;
             const { title, cols, rows } = payload;
+            const sessionScope = (payload.scope && typeof payload.scope === 'string' && payload.scope.trim().length > 0)
+              ? payload.scope.trim()
+              : ctx.scope;
             const newSessionId = `term-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
             const initialCols = cols && Number.isInteger(cols) ? cols : 80;
             const initialRows = rows && Number.isInteger(rows) ? rows : 24;
 
-            const newSession = ptyManager.getOrCreateSession(newSessionId, initialCols, initialRows, title);
+            const newSession = ptyManager.getOrCreateSession(newSessionId, initialCols, initialRows, title, sessionScope);
             ptyManager.attachClient(newSessionId, ws);
             ctx.activeSessions.add(newSessionId);
 
-            console.log(`[WebSocket] Created new session ${newSessionId} (${newSession.title})`);
+            console.log(`[WebSocket] Created new session ${newSessionId} (scope: ${sessionScope || 'none'}, title: ${newSession.title})`);
 
             ws.send(JSON.stringify({
               type: 'session_created',
               sessionId: newSessionId,
+              scope: sessionScope,
               title: newSession.title,
               cols: newSession.cols,
               rows: newSession.rows,
-              sessions: ptyManager.getAllSessions()
+              sessions: ptyManager.getSessionsForScope(sessionScope)
             }));
 
-            // Broadcast updated session list to all clients
-            broadcastAuthenticated({
+            // Broadcast updated session list ONLY to clients with the same scope
+            broadcastToScope(sessionScope, {
               type: 'session_list_updated',
-              sessions: ptyManager.getAllSessions()
+              sessions: ptyManager.getSessionsForScope(sessionScope)
             });
             break;
           }
@@ -145,10 +163,17 @@ export function setupWebSocketServer(
             const targetSessionId = payload.sessionId;
             if (!targetSessionId) return;
 
+            const existingSession = ptyManager.getSession(targetSessionId);
+            // Isolation check: reject attaching to sessions of another scope
+            if (existingSession && ctx.scope && existingSession.scope && existingSession.scope !== ctx.scope) {
+              console.warn(`[WebSocket] Attach rejected: session ${targetSessionId} (scope: ${existingSession.scope}) does not match client scope ${ctx.scope}`);
+              return;
+            }
+
             const cols = payload.cols && Number.isInteger(payload.cols) ? payload.cols : 80;
             const rows = payload.rows && Number.isInteger(payload.rows) ? payload.rows : 24;
 
-            const session = ptyManager.getOrCreateSession(targetSessionId, cols, rows);
+            const session = ptyManager.getOrCreateSession(targetSessionId, cols, rows, undefined, ctx.scope);
             ptyManager.attachClient(targetSessionId, ws);
             ctx.activeSessions.add(targetSessionId);
 
@@ -175,13 +200,18 @@ export function setupWebSocketServer(
             if (!ctx.authenticated) return;
             const { sessionId, title } = payload;
             if (sessionId && title && typeof title === 'string') {
+              const session = ptyManager.getSession(sessionId);
+              if (session && ctx.scope && session.scope && session.scope !== ctx.scope) {
+                return;
+              }
+              const targetScope = session?.scope ?? ctx.scope;
               const ok = ptyManager.renameSession(sessionId, title);
               if (ok) {
-                broadcastAuthenticated({
+                broadcastToScope(targetScope, {
                   type: 'session_renamed',
                   sessionId,
                   title,
-                  sessions: ptyManager.getAllSessions()
+                  sessions: ptyManager.getSessionsForScope(targetScope)
                 });
               }
             }
@@ -192,12 +222,17 @@ export function setupWebSocketServer(
             if (!ctx.authenticated) return;
             const { sessionId } = payload;
             if (sessionId) {
-              console.log(`[WebSocket] Kill session request for ${sessionId}`);
+              const session = ptyManager.getSession(sessionId);
+              if (session && ctx.scope && session.scope && session.scope !== ctx.scope) {
+                return;
+              }
+              const targetScope = session?.scope ?? ctx.scope;
+              console.log(`[WebSocket] Kill session request for ${sessionId} (scope: ${targetScope || 'none'})`);
               ctx.activeSessions.delete(sessionId);
               ptyManager.destroySession(sessionId);
-              broadcastAuthenticated({
+              broadcastToScope(targetScope, {
                 type: 'session_list_updated',
-                sessions: ptyManager.getAllSessions()
+                sessions: ptyManager.getSessionsForScope(targetScope)
               });
             }
             break;
@@ -210,6 +245,10 @@ export function setupWebSocketServer(
             }
             const targetSession = payload.sessionId || ctx.primarySessionId;
             if (targetSession && typeof payload.data === 'string') {
+              const session = ptyManager.getSession(targetSession);
+              if (session && ctx.scope && session.scope && session.scope !== ctx.scope) {
+                return;
+              }
               ptyManager.write(targetSession, payload.data);
             }
             break;
@@ -220,6 +259,10 @@ export function setupWebSocketServer(
             const targetSession = payload.sessionId || ctx.primarySessionId;
             const { cols, rows } = payload;
             if (targetSession && cols > 0 && rows > 0) {
+              const session = ptyManager.getSession(targetSession);
+              if (session && ctx.scope && session.scope && session.scope !== ctx.scope) {
+                return;
+              }
               ptyManager.resize(targetSession, cols, rows);
             }
             break;
@@ -348,6 +391,7 @@ export function setupWebSocketServer(
     });
 
     ws.on('close', () => {
+      clients.delete(ws);
       for (const sid of ctx.activeSessions) {
         ptyManager.detachClient(sid, ws);
       }
@@ -355,6 +399,7 @@ export function setupWebSocketServer(
     });
 
     ws.on('error', (err) => {
+      clients.delete(ws);
       console.error('[WebSocket] Socket error:', err);
       for (const sid of ctx.activeSessions) {
         ptyManager.detachClient(sid, ws);

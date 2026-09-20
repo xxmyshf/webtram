@@ -2,6 +2,8 @@ export interface TerminalConfig {
   asrApiUrl: string;
   wsUrl?: string;
   defaultPassword?: string;
+  scope?: string;
+  conversationId?: string;
 }
 
 declare global {
@@ -18,6 +20,8 @@ export function getTerminalConfig(): TerminalConfig {
   return {
     asrApiUrl: custom.asrApiUrl || '/api/asr',
     wsUrl: custom.wsUrl || defaultWsUrl,
-    defaultPassword: custom.defaultPassword || ''
+    defaultPassword: custom.defaultPassword || '',
+    scope: custom.scope || custom.conversationId,
+    conversationId: custom.conversationId || custom.scope
   };
 }

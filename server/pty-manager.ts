@@ -4,6 +4,7 @@ import { RingBuffer } from './ring-buffer.js';
 
 export interface TerminalSession {
   id: string;
+  scope?: string;
   title: string;
   ptyProcess: IPty;
   ringBuffer: RingBuffer;
@@ -32,7 +33,7 @@ export class PtyManager {
     this.timeoutMs = timeoutMinutes > 0 ? timeoutMinutes * 60 * 1000 : 0;
   }
 
-  public getOrCreateSession(sessionId: string, initialCols = 80, initialRows = 24, initialTitle?: string): TerminalSession {
+  public getOrCreateSession(sessionId: string, initialCols = 80, initialRows = 24, initialTitle?: string, scope?: string): TerminalSession {
     let session = this.sessions.get(sessionId);
 
     if (session) {
@@ -45,6 +46,9 @@ export class PtyManager {
       session.lastActiveAt = Date.now();
       if (initialTitle) {
         session.title = initialTitle;
+      }
+      if (scope && !session.scope) {
+        session.scope = scope;
       }
       return session;
     }
@@ -71,6 +75,7 @@ export class PtyManager {
 
     session = {
       id: sessionId,
+      scope: scope || undefined,
       title: defaultTitle,
       ptyProcess,
       ringBuffer,
@@ -229,9 +234,30 @@ export class PtyManager {
     return this.sessions.get(sessionId);
   }
 
-  public getAllSessions(): Array<{ id: string; title: string; cols: number; rows: number; createdAt: number; lastActiveAt: number; clientCount: number }> {
+  public getSessionsForScope(scope?: string): Array<{ id: string; scope?: string; title: string; cols: number; rows: number; createdAt: number; lastActiveAt: number; clientCount: number }> {
+    return Array.from(this.sessions.values())
+      .filter(s => {
+        if (scope) {
+          return s.scope === scope;
+        }
+        return !s.scope;
+      })
+      .map(s => ({
+        id: s.id,
+        scope: s.scope,
+        title: s.title,
+        cols: s.cols,
+        rows: s.rows,
+        createdAt: s.createdAt,
+        lastActiveAt: s.lastActiveAt,
+        clientCount: s.clients.size
+      }));
+  }
+
+  public getAllSessions(): Array<{ id: string; scope?: string; title: string; cols: number; rows: number; createdAt: number; lastActiveAt: number; clientCount: number }> {
     return Array.from(this.sessions.values()).map(s => ({
       id: s.id,
+      scope: s.scope,
       title: s.title,
       cols: s.cols,
       rows: s.rows,
