@@ -1,11 +1,5 @@
 import { ensureNativePtyBinary } from './embedded-assets.js';
 import type * as nodePtyType from 'node-pty';
-import { createRequire } from 'module';
-
-declare const require: any;
-const nodeRequire = (typeof require === 'function')
-  ? require
-  : createRequire(typeof import.meta !== 'undefined' && import.meta.url ? import.meta.url : `file://${process.cwd()}/`);
 
 let ptyModule: typeof nodePtyType | null = null;
 
@@ -15,9 +9,8 @@ export function getPty(): typeof nodePtyType {
   // 1. 确保在载入 node-pty 前，原生的 pty.node 已释放至 build/Release/ 与 prebuilds/
   ensureNativePtyBinary();
 
-  // 2. 动态 require 已被 esbuild 打包进 bundle 的 node-pty
-  // 通过 require('node-pty') 触发 node-pty 顶层模块的初始化与 loadNativeModule
-  ptyModule = nodeRequire('node-pty');
+  // 2. 直接使用 require('node-pty')，esbuild 打包时会静态分析并完整内嵌 node-pty 的全部 JS 逻辑
+  ptyModule = require('node-pty');
   return ptyModule!;
 }
 

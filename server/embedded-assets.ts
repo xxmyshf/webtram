@@ -172,6 +172,17 @@ export function ensureNativePtyBinary(): string | null {
         fs.chmodSync(prebuildsFile, 0o755);
       } catch {}
     }
+    if (rawArch !== currentArch) {
+      const altPrebuildsDir = path.resolve(baseDir, `prebuilds/${currentPlatform}-${rawArch}`);
+      const altPrebuildsFile = path.resolve(altPrebuildsDir, 'pty.node');
+      if (!fs.existsSync(altPrebuildsFile)) {
+        try {
+          fs.mkdirSync(altPrebuildsDir, { recursive: true });
+          fs.writeFileSync(altPrebuildsFile, expectedBuf);
+          fs.chmodSync(altPrebuildsFile, 0o755);
+        } catch {}
+      }
+    }
 
     // 如果包含 spawn-helper (如 macOS)，也确保释放
     if (entry?.spawnHelper) {

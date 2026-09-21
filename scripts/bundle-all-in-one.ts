@@ -85,11 +85,15 @@ async function bundleAllInOne() {
           `function loadNativeModule(name) {
   var path = require("path");
   var baseDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
+  var rawArch = process.arch;
+  var normArch = (rawArch === "aarch64" || rawArch === "arm64") ? "arm64" : (rawArch === "x64" || rawArch === "amd64") ? "x64" : rawArch;
   var candidates = [
     path.resolve(baseDir, "build/Release", name + ".node"),
-    path.resolve(baseDir, "prebuilds/" + process.platform + "-" + process.arch, name + ".node"),
+    path.resolve(baseDir, "prebuilds/" + process.platform + "-" + normArch, name + ".node"),
+    path.resolve(baseDir, "prebuilds/" + process.platform + "-" + rawArch, name + ".node"),
     path.resolve(process.cwd(), "build/Release", name + ".node"),
-    path.resolve(process.cwd(), "prebuilds/" + process.platform + "-" + process.arch, name + ".node")
+    path.resolve(process.cwd(), "prebuilds/" + process.platform + "-" + normArch, name + ".node"),
+    path.resolve(process.cwd(), "prebuilds/" + process.platform + "-" + rawArch, name + ".node")
   ];
   var lastError;
   for (var i = 0; i < candidates.length; i++) {
