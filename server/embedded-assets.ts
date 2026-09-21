@@ -25,8 +25,8 @@ DEFAULT_SHELL=/bin/bash
 # 终端最大回放行数 (2000行 RingBuffer 现场恢复)
 MAX_HISTORY_LINES=2000
 
-# 终端无活动超时断开时间 (分钟)
-SESSION_TIMEOUT_MINUTES=30
+# 终端离线超时断开时间 (分钟，0 表示永不杀死终端，tmux 级后台持久驻留)
+SESSION_TIMEOUT_MINUTES=0
 `;
 
 export interface EmbeddedBinaryEntry {
