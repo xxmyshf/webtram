@@ -1,6 +1,8 @@
 node_modules
 dist
 build
+prebuilds
 .env.local
 certs/*.pem
+
 
