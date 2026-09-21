@@ -46,10 +46,14 @@ export class MultiTerminalManager {
     const term = new TerminalManager({
       container: subContainer,
       onInput: (data) => {
-        this.options.onInput(sessionId, data);
+        if (this.activeSessionId === sessionId) {
+          this.options.onInput(sessionId, data);
+        }
       },
       onResize: (cols, rows) => {
-        this.options.onResize(sessionId, cols, rows);
+        if (this.activeSessionId === sessionId) {
+          this.options.onResize(sessionId, cols, rows);
+        }
       }
     });
 
@@ -123,6 +127,13 @@ export class MultiTerminalManager {
       if (this.activeSessionId !== sessionId) {
         this.options.onUnread?.(sessionId);
       }
+    }
+  }
+
+  public writeHistory(sessionId: string, data: string, onComplete?: () => void): void {
+    const entry = this.terminals.get(sessionId);
+    if (entry) {
+      entry.term.writeHistory(data, onComplete);
     }
   }
 

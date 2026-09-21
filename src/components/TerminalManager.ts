@@ -17,6 +17,7 @@ export class TerminalManager {
   private onInputCallback: (data: string) => void;
   private resizeObserver: ResizeObserver | null = null;
   private inertiaAnimFrame: number | null = null;
+  private isReplayingHistory = false;
 
   constructor(options: TerminalManagerOptions) {
     this.container = options.container;
@@ -90,6 +91,10 @@ export class TerminalManager {
 
     // Capture user direct typing (physical keyboard or paste)
     this.terminal.onData((data) => {
+      // Suppress automated terminal query responses triggered during history replay
+      if (this.isReplayingHistory) {
+        return;
+      }
       options.onInput(data);
     });
 
@@ -102,10 +107,13 @@ export class TerminalManager {
 
   public fit(): void {
     try {
+      if (!this.container || this.container.clientWidth <= 0 || this.container.clientHeight <= 0) {
+        return;
+      }
       this.fitAddon.fit();
       const cols = this.terminal.cols;
       const rows = this.terminal.rows;
-      if (cols > 0 && rows > 0) {
+      if (cols > 10 && rows > 2) {
         this.onResizeCallback(cols, rows);
       }
     } catch (err) {
@@ -115,6 +123,14 @@ export class TerminalManager {
 
   public write(data: string): void {
     this.terminal.write(data);
+  }
+
+  public writeHistory(data: string, onComplete?: () => void): void {
+    this.isReplayingHistory = true;
+    this.terminal.write(data, () => {
+      this.isReplayingHistory = false;
+      onComplete?.();
+    });
   }
 
   public clear(): void {
@@ -158,6 +174,9 @@ export class TerminalManager {
   private setupResizeObserver(): void {
     let timeout: NodeJS.Timeout | null = null;
     this.resizeObserver = new ResizeObserver(() => {
+      if (!this.container || this.container.clientWidth <= 0 || this.container.clientHeight <= 0) {
+        return;
+      }
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
         this.fit();

@@ -30,6 +30,7 @@ class WebTermApp {
   private activeSessionId: string | null = null;
   private scope = '';
   private ownedSessionIds: Set<string> = new Set();
+  private attachedSessionIds: Set<string> = new Set();
   private cachedPassword = '';
   private isConnecting = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -252,25 +253,6 @@ class WebTermApp {
     }
   }
 
-  private selectSession(sessionId: string): void {
-    this.activeSessionId = sessionId;
-    const sessionStoreKey = this.scope ? `webterm_session_id_${this.scope}` : 'webterm_session_id';
-    localStorage.setItem(sessionStoreKey, sessionId);
-    this.multiTerminalManager.getOrCreateTerminal(sessionId);
-    this.multiTerminalManager.switchSession(sessionId);
-    this.sessionTabBar.setActiveTab(sessionId);
-
-    // Ensure session is attached on WebSocket
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'session_attach',
-        sessionId,
-        cols: this.multiTerminalManager.getCols(),
-        rows: this.multiTerminalManager.getRows()
-      }));
-    }
-  }
-
   private createSession(): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const curTabs = this.sessionTabBar.getTabs();
@@ -308,6 +290,7 @@ class WebTermApp {
 
   private handleSessionClosed(sessionId: string): void {
     this.ownedSessionIds.delete(sessionId);
+    this.attachedSessionIds.delete(sessionId);
     this.multiTerminalManager.removeTerminal(sessionId);
     const tabs = this.sessionTabBar.getTabs().filter(t => t.id !== sessionId);
 
@@ -385,6 +368,26 @@ class WebTermApp {
     this.multiTerminalManager.switchSession(targetActiveId);
   }
 
+  private selectSession(sessionId: string): void {
+    this.activeSessionId = sessionId;
+    const sessionStoreKey = this.scope ? `webterm_session_id_${this.scope}` : 'webterm_session_id';
+    localStorage.setItem(sessionStoreKey, sessionId);
+    this.multiTerminalManager.getOrCreateTerminal(sessionId);
+    this.multiTerminalManager.switchSession(sessionId);
+    this.sessionTabBar.setActiveTab(sessionId);
+
+    // Only send session_attach if not yet attached on WebSocket
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && !this.attachedSessionIds.has(sessionId)) {
+      this.attachedSessionIds.add(sessionId);
+      this.ws.send(JSON.stringify({
+        type: 'session_attach',
+        sessionId,
+        cols: this.multiTerminalManager.getCols(),
+        rows: this.multiTerminalManager.getRows()
+      }));
+    }
+  }
+
   private async tryAuthenticate(password: string): Promise<boolean> {
     const hash = await hashPassword(password);
     this.cachedPassword = hash;
@@ -408,6 +411,7 @@ class WebTermApp {
   private connectWebSocket(onAuthResult?: (success: boolean) => void): void {
     if (this.isConnecting) return;
     this.isConnecting = true;
+    this.attachedSessionIds.clear();
 
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -506,9 +510,14 @@ class WebTermApp {
 
             this.updateSessionsList(finalSessions, msg.sessionId);
 
+            if (msg.sessionId) {
+              this.attachedSessionIds.add(msg.sessionId);
+            }
+
             // Re-attach to all other sessions in this scope so background outputs stream in real-time
             for (const s of finalSessions) {
-              if (s.id !== msg.sessionId && this.ws && this.ws.readyState === WebSocket.OPEN) {
+              if (s.id !== msg.sessionId && this.ws && this.ws.readyState === WebSocket.OPEN && !this.attachedSessionIds.has(s.id)) {
+                this.attachedSessionIds.add(s.id);
                 this.ws.send(JSON.stringify({
                   type: 'session_attach',
                   sessionId: s.id,
@@ -561,6 +570,7 @@ class WebTermApp {
           case 'session_created': {
             if (msg.sessionId) {
               this.ownedSessionIds.add(msg.sessionId);
+              this.attachedSessionIds.add(msg.sessionId);
             }
             if (Array.isArray(msg.sessions)) {
               this.updateSessionsList(msg.sessions, msg.sessionId);
@@ -600,7 +610,7 @@ class WebTermApp {
               }
               const term = this.multiTerminalManager.getOrCreateTerminal(sid);
               term.clear();
-              term.write(msg.data);
+              this.multiTerminalManager.writeHistory(sid, msg.data);
             }
             break;
           }
