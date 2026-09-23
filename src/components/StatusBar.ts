@@ -21,6 +21,8 @@ export class StatusBar {
   private fontSizeVal: HTMLElement;
   private fontSlider: HTMLInputElement;
   private fontChips: NodeListOf<HTMLButtonElement>;
+  private keyIndicatorEl: HTMLElement;
+  private keyIndicatorTimer: NodeJS.Timeout | null = null;
   private callbacks: StatusBarCallbacks;
   private activeView: 'terminal' | 'files' = 'terminal';
 
@@ -39,6 +41,9 @@ export class StatusBar {
             <span class="status-ping">-- ms</span>
           </span>
         </div>
+
+        <!-- Key Feedback Indicator Pill (transient neon tag for Escape and hotkeys) -->
+        <div class="key-indicator-pill" style="display: none;">ESC</div>
 
         <!-- View Mode Switcher (Icon only, consistent height with other bar-btn) -->
         <div class="cyber-view-switcher">
@@ -149,6 +154,7 @@ export class StatusBar {
     this.statusText = this.container.querySelector('.status-text')!;
     this.statusPingWrapper = this.container.querySelector('.status-ping-wrapper')!;
     this.pingEl = this.container.querySelector('.status-ping')!;
+    this.keyIndicatorEl = this.container.querySelector('.key-indicator-pill')!;
 
     this.fontPopover = this.container.querySelector('.cyber-font-popover')!;
     this.fontSizeVal = this.container.querySelector('.font-popover-val')!;
@@ -351,6 +357,24 @@ export class StatusBar {
 
   public setSessionId(_id: string): void {
     // Session badge removed per user request
+  }
+
+  public showKeyIndicator(label = 'ESC'): void {
+    if (!this.keyIndicatorEl) return;
+    this.keyIndicatorEl.textContent = label;
+    this.keyIndicatorEl.style.display = 'inline-flex';
+    this.keyIndicatorEl.classList.remove('fade-out');
+    if (this.keyIndicatorTimer) {
+      clearTimeout(this.keyIndicatorTimer);
+    }
+    this.keyIndicatorTimer = setTimeout(() => {
+      this.keyIndicatorEl.classList.add('fade-out');
+      setTimeout(() => {
+        if (this.keyIndicatorEl && this.keyIndicatorEl.classList.contains('fade-out')) {
+          this.keyIndicatorEl.style.display = 'none';
+        }
+      }, 200);
+    }, 400);
   }
 
   public setTabBar(tabBarElement: HTMLElement): void {

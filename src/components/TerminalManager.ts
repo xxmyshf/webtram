@@ -7,6 +7,7 @@ export interface TerminalManagerOptions {
   container: HTMLElement;
   onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
+  onEscapeFeedback?: () => void;
 }
 
 export class TerminalManager {
@@ -106,6 +107,7 @@ export class TerminalManager {
           ev.preventDefault();
           ev.stopPropagation();
           options.onInput(ev.altKey ? '\x1b\x1b' : '\x1b');
+          options.onEscapeFeedback?.();
         }
         return false;
       }

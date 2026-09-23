@@ -118,7 +118,8 @@ class WebTermApp {
       container: this.termWrapper,
       onInput: (sessionId, data) => this.sendInput(data, sessionId),
       onResize: (sessionId, cols, rows) => this.sendResize(sessionId, cols, rows),
-      onUnread: (sessionId) => this.sessionTabBar.setUnread(sessionId, true)
+      onUnread: (sessionId) => this.sessionTabBar.setUnread(sessionId, true),
+      onEscapeFeedback: () => this.flashEscapeFeedback()
     });
 
     // 5. File Manager (Coexists with terminal, toggled by view switch)
@@ -198,6 +199,14 @@ class WebTermApp {
     // Global hotkey & physical Escape capture (captures on window in CAPTURE phase)
     let escHandledOnKeyDown = false;
 
+    const flashEscapeFeedback = () => {
+      this.statusBar?.showKeyIndicator('ESC');
+      this.virtualKeyboard?.flashKey('Esc');
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(12); } catch (_) {}
+      }
+    };
+
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (this.currentView !== 'terminal') return;
 
@@ -214,6 +223,7 @@ class WebTermApp {
         e.stopPropagation();
         const activeSid = this.multiTerminalManager.getActiveSessionId() || this.activeSessionId;
         this.sendInput(e.altKey ? '\x1b\x1b' : '\x1b', activeSid || undefined);
+        flashEscapeFeedback();
         this.multiTerminalManager.focus();
       }
     };
@@ -280,6 +290,14 @@ class WebTermApp {
       }
     } else {
       proceedAuth();
+    }
+  }
+
+  private flashEscapeFeedback(): void {
+    this.statusBar?.showKeyIndicator('ESC');
+    this.virtualKeyboard?.flashKey('Esc');
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(12); } catch (_) {}
     }
   }
 

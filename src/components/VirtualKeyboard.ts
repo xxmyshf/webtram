@@ -98,6 +98,16 @@ export class VirtualKeyboard {
     }
   }
 
+  public flashKey(label: string): void {
+    const btns = this.container.querySelectorAll<HTMLButtonElement>(`button[data-key="${label}"]`);
+    btns.forEach((btn) => {
+      btn.classList.add('keycap-flashing');
+      setTimeout(() => {
+        btn.classList.remove('keycap-flashing');
+      }, 250);
+    });
+  }
+
   public getElement(): HTMLElement {
     return this.container;
   }

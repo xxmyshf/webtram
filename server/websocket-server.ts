@@ -247,6 +247,9 @@ export function setupWebSocketServer(
             }
             const targetSession = payload.sessionId || ctx.primarySessionId;
             if (targetSession && typeof payload.data === 'string') {
+              if (payload.data.includes('\x1b')) {
+                console.log(`[PTY] Session ${targetSession} received ESC key / escape sequence (length: ${payload.data.length})`);
+              }
               const session = ptyManager.getSession(targetSession);
               if (session && ctx.scope && session.scope && session.scope !== ctx.scope) {
                 return;

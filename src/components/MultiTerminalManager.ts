@@ -5,6 +5,7 @@ export interface MultiTerminalManagerOptions {
   onInput: (sessionId: string, data: string) => void;
   onResize: (sessionId: string, cols: number, rows: number) => void;
   onUnread?: (sessionId: string) => void;
+  onEscapeFeedback?: () => void;
 }
 
 interface TerminalEntry {
@@ -54,6 +55,9 @@ export class MultiTerminalManager {
         if (this.activeSessionId === sessionId) {
           this.options.onResize(sessionId, cols, rows);
         }
+      },
+      onEscapeFeedback: () => {
+        this.options.onEscapeFeedback?.();
       }
     });
 
