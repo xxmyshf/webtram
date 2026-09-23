@@ -252,11 +252,11 @@ function shutdown() {
   }, 800);
   forceTimer.unref();
 
-  // 1. Destroy all PTY child processes and clean timers
+  // 1. Flush session CWDs, save persistent manifest, and terminate PTY processes cleanly
   try {
-    ptyManager.destroyAllSessions();
+    ptyManager.prepareShutdown();
   } catch (err) {
-    console.error('[Server] Error destroying PTY sessions:', err);
+    console.error('[Server] Error preparing PTY shutdown:', err);
   }
 
   // 2. Terminate all active WebSocket clients & close WSS
