@@ -207,6 +207,57 @@ https://<局域网或公网IP>:<PORT>/?pwd=<明文密码>
 
 ---
 
+## 多架构全栈一体化打包设计规范与要求
+
+为了保障 WebTerm 在所有目标服务器与用户设备上均能实现**免编译、零依赖、单文件便携分发（Single Executable / Portable Script）**，每次构建打包必须严格遵守多架构设计规范。
+
+### 1. 目标架构支持矩阵
+每次一体化构建必须完整包含以下四大主流目标平台与架构的原生 PTY 动态链接库：
+- **`linux-x64`**：主流 Linux x86_64 服务器、PC 桌面、WSL 环境；
+- **`linux-arm64`**：ARM64 / aarch64 设备，包括树莓派、飞腾/鲲鹏国产化环境、AWS Graviton、各类 ARM 架构云服务器与开发板；
+- **`darwin-arm64`**：macOS Apple Silicon（M1/M2/M3/M4 系列芯片），必须包含 `pty.node` 与 `spawn-helper`；
+- **`darwin-x64`**：macOS Intel x86_64 架构芯片，必须包含 `pty.node` 与 `spawn-helper`。
+
+### 2. 源码二进制组织规范 (`bin/`)
+项目根目录下的 `bin/` 必须按平台-架构目录进行规范管理，禁止随意挪动或改名：
+```
+bin/
+├── linux-x64/
+│   └── pty.node           # Linux x86_64 原生模块
+├── linux-arm64/
+│   └── pty.node           # Linux aarch64 原生模块
+├── darwin-arm64/
+│   ├── pty.node           # Apple Silicon 原生模块
+│   └── spawn-helper       # macOS PTY 权限辅助进程
+└── darwin-x64/
+    ├── pty.node           # macOS Intel 原生模块
+    └── spawn-helper       # macOS PTY 权限辅助进程
+```
+
+### 3. 构建脚本自动化校验要求 (`scripts/bundle-all-in-one.ts`)
+1. **全自动化打包流程**：
+   - 运行 `npm run bundle` 时，会自动先执行 `npm run build` 生成纯内联单文件前端（`dist/index.html` 与 `dist/webterm.js`），再由 esbuild 将前端资源、后端逻辑与多架构二进制统一打入单文件 `webterm.cjs`。
+2. **严格多架构校验拦截**：
+   - 构建脚本在编译前必须遍历并核验四大核心架构：`linux-x64`、`linux-arm64`、`darwin-arm64`、`darwin-x64`。
+   - 若缺失任意一项目标架构的 `pty.node`，必须在控制台发出明确警告并阻止发布未经全平台测试的残缺包。
+3. **Base64 资源注入与 node-pty 加载拦截**：
+   - 所有多架构二进制文件经 Base64 编码注入 `__WEBTERM_EMBEDDED_PTY_BINARIES__`；
+   - 打包时必须挂载 `patch-node-pty` 插件，重写 `node-pty/lib/utils.js` 中的 `loadNativeModule`，确保无论当前执行环境处于何种目录结构，都能自动优先寻路并成功加载本地已释放的原生模块。
+
+### 4. 运行期动态架构识别与自愈机制 (`ensureNativePtyBinary`)
+1. **架构规范化识别**：
+   - 服务启动时自动检测宿主环境的 `process.platform` 与 `process.arch`，统一归一化别名（如将 `aarch64` 映射为 `arm64`，将 `amd64` 映射为 `x64`）。
+2. **自愈与防冲突覆写**：
+   - 检查当前执行目录下的 `build/Release/pty.node` 与 `prebuilds/<platform>-<arch>/pty.node`。
+   - 若文件不存在，或由于跨架构拷贝（如 x86 机器复制到 ARM 机器运行）导致现有动态库与当前宿主架构不一致，服务必须自动识别并重新释放对应架构的二进制，赋予 `0o755` 执行权限，实现无感自愈。
+   - 在 macOS 环境下自动释放并授权 `spawn-helper`。
+
+### 5. 架构红线与约束
+- **严禁依赖目标机现场编译**：绝对禁止退化为需要用户在生产机或宿主环境上安装 `python`、`make`、`gcc/g++` 或运行 `npm install` / `node-gyp rebuild`；
+- **严禁产出单架构专有包**：每次全栈构建产物 `webterm.cjs` 必须为全平台多架构统一产物，保证同一份单文件可拷贝至 Linux x86、ARM 云服务器或 Mac 笔记本直接执行。
+
+---
+
 ## 异常自愈与诊断
 
 1. **端口被占用 (`EADDRINUSE`)**：

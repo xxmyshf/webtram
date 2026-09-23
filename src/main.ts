@@ -107,6 +107,11 @@ class WebTermApp {
     // 4. Terminal Container (MIDDLE)
     this.termWrapper = document.createElement('div');
     this.termWrapper.className = 'terminal-wrapper';
+    this.termWrapper.addEventListener('pointerdown', () => {
+      if (this.currentView === 'terminal') {
+        this.multiTerminalManager.focus();
+      }
+    });
     appEl.appendChild(this.termWrapper);
 
     this.multiTerminalManager = new MultiTerminalManager({
@@ -120,6 +125,7 @@ class WebTermApp {
     this.fileManager = new FileManager({
       sendWsMessage: (msg) => this.sendWsJson(msg),
       getAuthPassword: () => this.cachedPassword,
+      getScope: () => this.scope,
       onOpenInTerminal: (dirPath) => {
         this.sendInput(`cd "${dirPath}"\n`);
         this.switchView('terminal');
@@ -169,13 +175,31 @@ class WebTermApp {
 
     this.asrConfigModal = new ASRConfigModal(this.speechManager);
 
-    // Global hotkey: Alt+F or Alt+E to toggle between Terminal and Files
+    // Global hotkey: Alt+F or Alt+E to toggle between Terminal and Files, and physical Escape key capture
     window.addEventListener('keydown', (e) => {
       if (e.altKey && (e.key === 'f' || e.key === 'F' || e.key === 'e' || e.key === 'E')) {
         e.preventDefault();
         this.switchView(this.currentView === 'terminal' ? 'files' : 'terminal');
+        return;
       }
-    });
+
+      // Global capture for physical Escape key when in terminal view
+      if (this.currentView === 'terminal' && (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27)) {
+        // Do not intercept if an interactive modal dialog is open
+        const hasOpenModal = document.querySelector('.cyber-modal-overlay.modal-overlay-show, .cyber-auth-overlay:not(.hidden)');
+        const target = e.target as HTMLElement;
+        const tag = (target?.tagName || '').toLowerCase();
+        const isTerminalTextarea = target?.classList.contains('xterm-helper-textarea') || target?.classList.contains('native-ime-hidden-input');
+        const isInputInEdit = tag === 'input' || (tag === 'textarea' && !isTerminalTextarea);
+
+        if (!hasOpenModal && !isInputInEdit) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.sendInput(e.altKey ? '\x1b\x1b' : '\x1b');
+          this.multiTerminalManager.focus();
+        }
+      }
+    }, { capture: true });
 
     // Setup postMessage communication with parent host (WebTerm Manager)
     window.addEventListener('message', (event) => {

@@ -70,6 +70,15 @@ async function bundleAllInOne() {
     defaultPtyBase64 = Object.values(embeddedPtyBinaries)[0].ptyNode;
   }
 
+  // 严格多架构兼容性校验
+  const requiredTargets = ['linux-x64', 'linux-arm64', 'darwin-arm64', 'darwin-x64'];
+  const missingTargets = requiredTargets.filter((k) => !embeddedPtyBinaries[k]);
+  if (missingTargets.length > 0) {
+    console.warn(`⚠️ [PTY 多架构警告] 目标架构缺失: ${missingTargets.join(', ')}。请确保补充对应平台的 pty.node。`);
+  } else {
+    console.log(`✅ [PTY 多架构校验通过] 核心全架构二进制已 100% 完整嵌入: ${requiredTargets.join(', ')}`);
+  }
+
   // 3. 打包后端及内嵌资产为一个单 JS 文件
   console.log('\n[3/3] 正在使用 esbuild 打包前后端一体化单文件 (webterm.cjs)...');
   const outputFile = path.join(projectRoot, 'webterm.cjs');

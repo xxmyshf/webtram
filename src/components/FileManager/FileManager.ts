@@ -10,6 +10,7 @@ export interface FileManagerCallbacks {
   getAuthPassword: () => string;
   onOpenInTerminal: (dirPath: string) => void;
   onSwitchToTerminal: () => void;
+  getScope?: () => string | undefined;
 }
 
 export class FileManager {
@@ -45,6 +46,12 @@ export class FileManager {
   private clipboard: ClipboardState | null = null;
 
   private pendingRequests = new Map<string, { resolve: (val: any) => void; reject: (err: any) => void }>();
+  private activeDownloads = new Map<string, {
+    chunks: Uint8Array[];
+    fileName: string;
+    totalBytes: number;
+    receivedBytes: number;
+  }>();
   private hiddenFileInput: HTMLInputElement | null = null;
 
   constructor(callbacks: FileManagerCallbacks) {
@@ -87,6 +94,66 @@ export class FileManager {
         resolve(payload);
         return true;
       }
+    }
+
+    if (payload.type === 'fs_download_start') {
+      const { reqId, name, size } = payload;
+      this.activeDownloads.set(reqId, {
+        chunks: [],
+        fileName: name,
+        totalBytes: size,
+        receivedBytes: 0
+      });
+      return true;
+    }
+
+    if (payload.type === 'fs_download_chunk') {
+      const { reqId, data } = payload;
+      const dl = this.activeDownloads.get(reqId);
+      if (dl && data) {
+        const binaryStr = atob(data);
+        const len = binaryStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        dl.chunks.push(bytes);
+        dl.receivedBytes += len;
+      }
+      return true;
+    }
+
+    if (payload.type === 'fs_download_complete') {
+      const { reqId, name } = payload;
+      const dl = this.activeDownloads.get(reqId);
+      const chunks = dl ? dl.chunks : [];
+      const fileName = name || dl?.fileName || 'download';
+      this.activeDownloads.delete(reqId);
+
+      try {
+        const blob = new Blob(chunks as any, { type: 'application/octet-stream' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+        cyberToast(`下载完成: ${fileName}`, 'success');
+      } catch (err: any) {
+        cyberToast(`下载处理异常: ${err.message}`, 'error');
+      }
+      return true;
+    }
+
+    if (payload.type === 'fs_download_res') {
+      const { reqId, error, success } = payload;
+      this.activeDownloads.delete(reqId);
+      if (!success && error) {
+        cyberToast(`下载失败: ${error}`, 'error');
+      }
+      return true;
     }
     return false;
   }
@@ -198,7 +265,8 @@ export class FileManager {
     this.previewPane = new FilePreviewPane({
       onSaveFile: async (path, content) => this.saveFile(path, content),
       getAuthPassword: () => this.callbacks.getAuthPassword(),
-      onClosePreview: () => this.deselectFile()
+      onClosePreview: () => this.deselectFile(),
+      getScope: () => this.callbacks.getScope?.()
     });
 
     this.binaryInspector = new BinaryInspectorPane();
@@ -869,8 +937,33 @@ export class FileManager {
     if (items.length !== 1 || items[0].isDirectory) return;
 
     const item = items[0];
+    cyberToast(`正在准备下载: ${item.name}...`, 'info');
+
+    const reqId = 'dl-' + Math.random().toString(36).substring(2, 9);
+    this.activeDownloads.set(reqId, {
+      chunks: [],
+      fileName: item.name,
+      totalBytes: item.size,
+      receivedBytes: 0
+    });
+
+    try {
+      this.callbacks.sendWsMessage({
+        type: 'fs_download',
+        path: item.path,
+        reqId
+      });
+    } catch {
+      this.activeDownloads.delete(reqId);
+      this.downloadViaHttp(item);
+    }
+  }
+
+  private downloadViaHttp(item: FileEntry): void {
     const authPwd = encodeURIComponent(this.callbacks.getAuthPassword());
-    const downloadUrl = `/api/fs/download?path=${encodeURIComponent(item.path)}&pwd=${authPwd}`;
+    const scope = this.callbacks.getScope ? encodeURIComponent(this.callbacks.getScope() || '') : '';
+    const scopeParam = scope ? `&scope=${scope}` : '';
+    const downloadUrl = `/api/fs/download?path=${encodeURIComponent(item.path)}&pwd=${authPwd}${scopeParam}`;
     const a = document.createElement('a');
     a.href = downloadUrl;
     a.download = item.name;
@@ -898,25 +991,75 @@ export class FileManager {
 
   private async uploadFiles(files: FileList, targetDir: string): Promise<void> {
     const authPwd = this.callbacks.getAuthPassword();
+    const scope = this.callbacks.getScope ? this.callbacks.getScope() : undefined;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const targetPath = `${targetDir}/${file.name}`.replace(/\/+/g, '/');
 
       try {
-        const res = await fetch(`/api/fs/upload?path=${encodeURIComponent(targetPath)}`, {
-          method: 'POST',
-          headers: {
-            'x-webterm-pwd': authPwd,
-            'Content-Type': 'application/octet-stream'
-          },
-          body: file
-        });
-        const result = await res.json();
-        if (result.success) {
+        cyberToast(`正在上传 ${file.name}...`, 'info');
+        const chunkSize = 256 * 1024;
+        const totalChunks = file.size === 0 ? 1 : Math.ceil(file.size / chunkSize);
+
+        let wsUploadOk = false;
+        try {
+          if (file.size === 0) {
+            await this.sendFsRequest({
+              type: 'fs_upload_chunk',
+              targetPath,
+              chunkIndex: 0,
+              totalChunks: 1,
+              data: ''
+            });
+            wsUploadOk = true;
+          } else {
+            for (let c = 0; c < totalChunks; c++) {
+              const start = c * chunkSize;
+              const end = Math.min(start + chunkSize, file.size);
+              const slice = file.slice(start, end);
+              const arrayBuf = await slice.arrayBuffer();
+              const bytes = new Uint8Array(arrayBuf);
+              let binary = '';
+              for (let b = 0; b < bytes.byteLength; b++) {
+                binary += String.fromCharCode(bytes[b]);
+              }
+              const b64 = btoa(binary);
+
+              await this.sendFsRequest({
+                type: 'fs_upload_chunk',
+                targetPath,
+                chunkIndex: c,
+                totalChunks,
+                data: b64
+              });
+            }
+            wsUploadOk = true;
+          }
+        } catch {
+          wsUploadOk = false;
+        }
+
+        if (wsUploadOk) {
           cyberToast(`上传 ${file.name} 成功`, 'success');
         } else {
-          cyberToast(`上传 ${file.name} 失败: ${result.error}`, 'error');
+          // Fallback to HTTP upload
+          const scopeParam = scope ? `&scope=${encodeURIComponent(scope)}` : '';
+          const res = await fetch(`/api/fs/upload?path=${encodeURIComponent(targetPath)}${scopeParam}`, {
+            method: 'POST',
+            headers: {
+              'x-webterm-pwd': authPwd,
+              ...(scope ? { 'x-webterm-scope': scope } : {}),
+              'Content-Type': 'application/octet-stream'
+            },
+            body: file
+          });
+          const result = await res.json();
+          if (result.success) {
+            cyberToast(`上传 ${file.name} 成功`, 'success');
+          } else {
+            cyberToast(`上传 ${file.name} 失败: ${result.error}`, 'error');
+          }
         }
       } catch (err: any) {
         cyberToast(`上传 ${file.name} 异常: ${err.message}`, 'error');

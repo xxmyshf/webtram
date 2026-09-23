@@ -4,6 +4,7 @@ export interface FilePreviewCallbacks {
   onSaveFile: (path: string, content: string) => Promise<boolean>;
   getAuthPassword: () => string;
   onClosePreview?: () => void;
+  getScope?: () => string | undefined;
 }
 
 export class FilePreviewPane {
@@ -42,7 +43,8 @@ export class FilePreviewPane {
     const isMarkdown = ext === '.md';
 
     const authPwd = encodeURIComponent(this.callbacks.getAuthPassword());
-    const rawUrl = `/api/fs/raw?path=${encodeURIComponent(data.path)}&pwd=${authPwd}`;
+    const scope = this.callbacks.getScope ? encodeURIComponent(this.callbacks.getScope() || '') : '';
+    const rawUrl = `/api/fs/raw?path=${encodeURIComponent(data.path)}&pwd=${authPwd}${scope ? `&scope=${scope}` : ''}`;
     const formattedSize = this.formatSize(data.size);
     const formattedDate = new Date(data.mtime).toLocaleString();
 

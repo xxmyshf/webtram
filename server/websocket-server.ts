@@ -1,6 +1,8 @@
 import { Server as HttpServer } from 'http';
 import { Server as HttpsServer } from 'https';
 import { WebSocketServer, WebSocket } from 'ws';
+import fs from 'fs';
+import path from 'path';
 import { PtyManager } from './pty-manager.js';
 
 import { verifyPassword } from './auth.js';
@@ -369,6 +371,161 @@ export function setupWebSocketServer(
                 action,
                 success: false,
                 error: err.message || '操作执行失败'
+              }));
+            }
+            break;
+          }
+
+          case 'fs_download': {
+            if (!ctx.authenticated) {
+              ws.send(JSON.stringify({ type: 'error', error: '未鉴权的会话', reqId: payload.reqId }));
+              return;
+            }
+            const { path: targetPath, reqId } = payload;
+            try {
+              const resolved = fsManager.resolvePath(targetPath);
+              if (!fs.existsSync(resolved) || fs.statSync(resolved).isDirectory()) {
+                ws.send(JSON.stringify({
+                  type: 'fs_download_res',
+                  reqId,
+                  success: false,
+                  error: '文件不存在或目标是目录'
+                }));
+                return;
+              }
+
+              const stat = fs.statSync(resolved);
+              const totalSize = stat.size;
+              const fileName = path.basename(resolved);
+              const chunkSize = 256 * 1024; // 256KB per chunk
+              const totalChunks = totalSize === 0 ? 1 : Math.ceil(totalSize / chunkSize);
+
+              ws.send(JSON.stringify({
+                type: 'fs_download_start',
+                reqId,
+                name: fileName,
+                size: totalSize,
+                totalChunks,
+                chunkSize
+              }));
+
+              if (totalSize === 0) {
+                ws.send(JSON.stringify({
+                  type: 'fs_download_chunk',
+                  reqId,
+                  chunkIndex: 0,
+                  totalChunks: 1,
+                  data: ''
+                }));
+                ws.send(JSON.stringify({
+                  type: 'fs_download_complete',
+                  reqId,
+                  name: fileName,
+                  size: 0
+                }));
+                return;
+              }
+
+              const stream = fs.createReadStream(resolved, { highWaterMark: chunkSize });
+              let chunkIndex = 0;
+
+              stream.on('data', (chunk: Buffer | string) => {
+                if (ws.readyState !== WebSocket.OPEN) {
+                  stream.destroy();
+                  return;
+                }
+                const b64 = Buffer.isBuffer(chunk) ? chunk.toString('base64') : Buffer.from(chunk).toString('base64');
+                ws.send(JSON.stringify({
+                  type: 'fs_download_chunk',
+                  reqId,
+                  chunkIndex,
+                  totalChunks,
+                  data: b64
+                }));
+                chunkIndex++;
+
+                // Apply backpressure if client/proxy buffer is full
+                if (ws.bufferedAmount > 2 * 1024 * 1024) {
+                  stream.pause();
+                  const drainCheck = setInterval(() => {
+                    if (ws.readyState !== WebSocket.OPEN) {
+                      clearInterval(drainCheck);
+                      stream.destroy();
+                    } else if (ws.bufferedAmount < 512 * 1024) {
+                      clearInterval(drainCheck);
+                      stream.resume();
+                    }
+                  }, 20);
+                }
+              });
+
+              stream.on('end', () => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'fs_download_complete',
+                    reqId,
+                    name: fileName,
+                    size: totalSize
+                  }));
+                }
+              });
+
+              stream.on('error', (err) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'fs_download_res',
+                    reqId,
+                    success: false,
+                    error: err.message || '文件读取异常'
+                  }));
+                }
+              });
+            } catch (err: any) {
+              ws.send(JSON.stringify({
+                type: 'fs_download_res',
+                reqId,
+                success: false,
+                error: err.message || '下载处理异常'
+              }));
+            }
+            break;
+          }
+
+          case 'fs_upload_chunk': {
+            if (!ctx.authenticated) {
+              ws.send(JSON.stringify({ type: 'error', error: '未鉴权的会话', reqId: payload.reqId }));
+              return;
+            }
+            const { targetPath, chunkIndex, totalChunks, data, reqId } = payload;
+            try {
+              const resolved = fsManager.resolvePath(targetPath);
+              const chunkBuf = Buffer.from(data, 'base64');
+              if (chunkIndex === 0) {
+                const parentDir = path.dirname(resolved);
+                if (!fs.existsSync(parentDir)) {
+                  fs.mkdirSync(parentDir, { recursive: true });
+                }
+                fs.writeFileSync(resolved, chunkBuf);
+              } else {
+                fs.appendFileSync(resolved, chunkBuf);
+              }
+
+              if (chunkIndex + 1 >= totalChunks) {
+                ws.send(JSON.stringify({
+                  type: 'fs_action_res',
+                  reqId,
+                  action: 'upload',
+                  success: true,
+                  path: resolved
+                }));
+              }
+            } catch (err: any) {
+              ws.send(JSON.stringify({
+                type: 'fs_action_res',
+                reqId,
+                action: 'upload',
+                success: false,
+                error: err.message || '文件写入失败'
               }));
             }
             break;

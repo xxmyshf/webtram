@@ -98,6 +98,25 @@ export class TerminalManager {
       options.onInput(data);
     });
 
+    // Ensure physical Escape key is directly intercepted and dispatched to terminal backend
+    // (Bypasses browser IME cancellation and xterm keyCode 229/0 dropping)
+    this.terminal.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
+      if (ev.key === 'Escape' || ev.code === 'Escape' || ev.keyCode === 27) {
+        if (ev.type === 'keydown') {
+          ev.preventDefault();
+          ev.stopPropagation();
+          options.onInput(ev.altKey ? '\x1b\x1b' : '\x1b');
+        }
+        return false;
+      }
+      return true;
+    });
+
+    // Ensure terminal focuses when clicking or tapping anywhere in the container
+    this.container.addEventListener('pointerdown', () => {
+      this.terminal.focus();
+    });
+
     // Auto-fit on container size changes
     this.setupResizeObserver();
 

@@ -132,7 +132,10 @@ export class NativeIMEBridge {
     this.inputEl.addEventListener('keydown', (e) => {
       if (!this.isActive || this.isComposing) return;
 
-      if (e.key === 'Enter') {
+      if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+        e.preventDefault();
+        this.onInput(e.altKey ? '\x1b\x1b' : '\x1b');
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         this.onInput('\r');
         this.inputEl.value = '';
