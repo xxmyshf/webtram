@@ -91,6 +91,11 @@ export class PasswordChangeModal {
   }
 
   public hide(): void {
+    try {
+      this.currentInput.blur();
+      this.newInput.blur();
+      this.confirmInput.blur();
+    } catch {}
     this.container.classList.add('hidden');
   }
 

@@ -200,9 +200,17 @@ app.post('/api/auth/change-password', (req, res) => {
   res.json({ success: true, message: 'Password updated successfully' });
 });
 
-// Serve frontend build if dist exists
+// Serve frontend build if dist exists (with strict no-cache for HTML and JS to ensure instant updates)
 const distPath = path.join(projectRoot, 'dist');
-app.use(express.static(distPath));
+app.use(express.static(distPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Fallback SPA handler for non-API requests
 app.use((req, res, next) => {

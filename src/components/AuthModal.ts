@@ -32,7 +32,7 @@ export class AuthModal {
           <div class="auth-field">
             <label for="auth-pwd-input">ENTER ACCESS KEY / PASSWORD</label>
             <div class="input-wrapper">
-              <input type="password" id="auth-pwd-input" placeholder="输入访问密码 (默认: 12345678)" autocomplete="current-password" autofocus />
+              <input type="password" id="auth-pwd-input" placeholder="输入访问密码 (默认: 12345678)" autocomplete="current-password" />
               <button type="button" class="btn-toggle-eye" title="显示/隐藏密码">
                 <svg class="eye-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -96,6 +96,9 @@ export class AuthModal {
   }
 
   public hide(): void {
+    try {
+      this.inputEl.blur();
+    } catch {}
     this.container.classList.add('hidden');
   }
 

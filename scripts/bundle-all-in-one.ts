@@ -25,9 +25,17 @@ async function bundleAllInOne() {
     throw new Error('前端构建未生成预期的 dist/index.html 或 dist/webterm.js');
   }
 
-  const indexHtmlContent = fs.readFileSync(indexPath, 'utf-8');
+  let indexHtmlContent = fs.readFileSync(indexPath, 'utf-8');
+  // Inject unique build timestamp query string to /webterm.js to eliminate browser cache retention
+  const buildTimestamp = Date.now();
+  indexHtmlContent = indexHtmlContent.replace(
+    /src=["']\/webterm\.js(\?[^"']*)?["']/g,
+    `src="/webterm.js?v=${buildTimestamp}"`
+  );
+  fs.writeFileSync(indexPath, indexHtmlContent, 'utf-8');
+
   const webtermJsContent = fs.readFileSync(jsPath, 'utf-8');
-  console.log(`[Frontend] 已读取 index.html (${(indexHtmlContent.length / 1024).toFixed(2)} KB) 与 webterm.js (${(webtermJsContent.length / 1024).toFixed(2)} KB)`);
+  console.log(`[Frontend] 已读取 index.html (${(indexHtmlContent.length / 1024).toFixed(2)} KB, v=${buildTimestamp}) 与 webterm.js (${(webtermJsContent.length / 1024).toFixed(2)} KB)`);
 
   // 2. 读取原生 node-pty 二进制模块 (支持多架构: linux-x64, linux-arm64, darwin-arm64, darwin-x64)
   console.log('\n[2/3] 正在内嵌原生 PTY 多平台/多架构二进制资产...');

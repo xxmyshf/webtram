@@ -114,6 +114,11 @@ export class ASRConfigModal {
   }
 
   public hide(): void {
+    try {
+      this.megaAsrInput.blur();
+      this.customUrlInput.blur();
+      this.customKeyInput.blur();
+    } catch {}
     this.container.classList.add('hidden');
   }
 

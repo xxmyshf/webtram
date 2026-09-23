@@ -175,7 +175,49 @@ class WebTermApp {
 
     this.asrConfigModal = new ASRConfigModal(this.speechManager);
 
-    // Global hotkey: Alt+F or Alt+E to toggle between Terminal and Files, and physical Escape key capture
+    // Enable Keyboard Lock API so Chromium/Edge delivers physical Escape to the web app in fullscreen
+    const requestEscapeLock = () => {
+      if ('keyboard' in navigator && typeof (navigator as any).keyboard?.lock === 'function') {
+        (navigator as any).keyboard.lock(['Escape']).catch(() => {});
+      }
+    };
+    const releaseEscapeLock = () => {
+      if ('keyboard' in navigator && typeof (navigator as any).keyboard?.unlock === 'function') {
+        (navigator as any).keyboard.unlock();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        requestEscapeLock();
+      } else {
+        releaseEscapeLock();
+      }
+    });
+
+    // Global hotkey & physical Escape capture (captures on window in CAPTURE phase)
+    let escHandledOnKeyDown = false;
+
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (this.currentView !== 'terminal') return;
+
+      // Do not intercept if an interactive modal dialog is open
+      const hasOpenModal = document.querySelector('.cyber-modal-overlay.modal-overlay-show, .cyber-auth-overlay:not(.hidden)');
+      const target = e.target as HTMLElement;
+      const tag = (target?.tagName || '').toLowerCase();
+      const isTerminalTextarea = target?.classList.contains('xterm-helper-textarea') || target?.classList.contains('native-ime-hidden-input');
+      // Only protect genuinely visible text inputs being actively edited (e.g. tab rename input)
+      const isVisibleInput = (tag === 'input' || (tag === 'textarea' && !isTerminalTextarea)) && target?.offsetParent !== null;
+
+      if (!hasOpenModal && !isVisibleInput) {
+        e.preventDefault();
+        e.stopPropagation();
+        const activeSid = this.multiTerminalManager.getActiveSessionId() || this.activeSessionId;
+        this.sendInput(e.altKey ? '\x1b\x1b' : '\x1b', activeSid || undefined);
+        this.multiTerminalManager.focus();
+      }
+    };
+
     window.addEventListener('keydown', (e) => {
       if (e.altKey && (e.key === 'f' || e.key === 'F' || e.key === 'e' || e.key === 'E')) {
         e.preventDefault();
@@ -183,21 +225,18 @@ class WebTermApp {
         return;
       }
 
-      // Global capture for physical Escape key when in terminal view
-      if (this.currentView === 'terminal' && (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27)) {
-        // Do not intercept if an interactive modal dialog is open
-        const hasOpenModal = document.querySelector('.cyber-modal-overlay.modal-overlay-show, .cyber-auth-overlay:not(.hidden)');
-        const target = e.target as HTMLElement;
-        const tag = (target?.tagName || '').toLowerCase();
-        const isTerminalTextarea = target?.classList.contains('xterm-helper-textarea') || target?.classList.contains('native-ime-hidden-input');
-        const isInputInEdit = tag === 'input' || (tag === 'textarea' && !isTerminalTextarea);
+      if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+        escHandledOnKeyDown = true;
+        handleEscapeKey(e);
+      }
+    }, { capture: true });
 
-        if (!hasOpenModal && !isInputInEdit) {
-          e.preventDefault();
-          e.stopPropagation();
-          this.sendInput(e.altKey ? '\x1b\x1b' : '\x1b');
-          this.multiTerminalManager.focus();
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+        if (!escHandledOnKeyDown) {
+          handleEscapeKey(e);
         }
+        escHandledOnKeyDown = false;
       }
     }, { capture: true });
 
@@ -249,14 +288,15 @@ class WebTermApp {
 
   private sendInput(data: string, targetSessionId?: string): void {
     const now = Date.now();
-    // Guard against identical duplicate input within 60ms
-    if (data === this.lastInputData && now - this.lastInputTime < 60) {
+    // Guard against identical duplicate input within 40ms (never drop Escape \x1b)
+    const isEsc = data === '\x1b' || data === '\x1b\x1b';
+    if (!isEsc && data === this.lastInputData && now - this.lastInputTime < 40) {
       return;
     }
     this.lastInputTime = now;
     this.lastInputData = data;
 
-    const sid = targetSessionId || this.activeSessionId;
+    const sid = targetSessionId || this.multiTerminalManager?.getActiveSessionId() || this.activeSessionId;
     if (this.ws && this.ws.readyState === WebSocket.OPEN && sid) {
       this.ws.send(JSON.stringify({
         type: 'input',
