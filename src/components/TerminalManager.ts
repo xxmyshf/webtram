@@ -71,18 +71,20 @@ export class TerminalManager {
 
     this.terminal.open(this.container);
 
-    // Suppress mobile virtual keyboard for Xterm's hidden textarea
+    // Prevent OS IME (fcitx5/ibus) from attaching and swallowing physical Escape key,
+    // while keeping all standard keyboard events (Alphanumeric, Escape, Enter, Ctrl+C, etc.) and paste active.
     const helperTextarea = this.container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     if (helperTextarea) {
-      helperTextarea.setAttribute('inputmode', 'none');
-      helperTextarea.setAttribute('tabindex', '-1');
+      helperTextarea.readOnly = true;
+      helperTextarea.tabIndex = 0;
       helperTextarea.setAttribute('autocomplete', 'off');
       helperTextarea.setAttribute('autocorrect', 'off');
       helperTextarea.setAttribute('autocapitalize', 'off');
       helperTextarea.setAttribute('spellcheck', 'false');
 
-      // Keep inputmode="none" on focus for touch devices
+      // Keep readOnly on focus & suppress virtual keyboard on mobile touch devices
       helperTextarea.addEventListener('focus', () => {
+        helperTextarea.readOnly = true;
         const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isTouch) {
           helperTextarea.setAttribute('inputmode', 'none');
@@ -99,10 +101,12 @@ export class TerminalManager {
       options.onInput(data);
     });
 
-    // Ensure physical Escape key is directly intercepted and dispatched to terminal backend
+    // Ensure physical Escape key (and Ctrl+[) is directly intercepted and dispatched to terminal backend
     // (Bypasses browser IME cancellation and xterm keyCode 229/0 dropping)
     this.terminal.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
-      if (ev.key === 'Escape' || ev.code === 'Escape' || ev.keyCode === 27) {
+      const isEscape = ev.key === 'Escape' || ev.code === 'Escape' || ev.keyCode === 27 ||
+        (ev.ctrlKey && !ev.altKey && !ev.metaKey && (ev.key === '[' || ev.code === 'BracketLeft' || ev.keyCode === 219));
+      if (isEscape) {
         if (ev.type === 'keydown') {
           ev.preventDefault();
           ev.stopPropagation();
@@ -116,6 +120,9 @@ export class TerminalManager {
 
     // Ensure terminal focuses when clicking or tapping anywhere in the container
     this.container.addEventListener('pointerdown', () => {
+      if (helperTextarea) {
+        helperTextarea.readOnly = true;
+      }
       this.terminal.focus();
     });
 
@@ -159,6 +166,10 @@ export class TerminalManager {
   }
 
   public focus(): void {
+    const helperTextarea = this.container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+    if (helperTextarea) {
+      helperTextarea.readOnly = true;
+    }
     this.terminal.focus();
   }
 

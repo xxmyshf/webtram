@@ -224,7 +224,9 @@ class WebTermApp {
         const activeSid = this.multiTerminalManager.getActiveSessionId() || this.activeSessionId;
         this.sendInput(e.altKey ? '\x1b\x1b' : '\x1b', activeSid || undefined);
         flashEscapeFeedback();
-        this.multiTerminalManager.focus();
+        if (!isTerminalTextarea) {
+          this.multiTerminalManager.focus();
+        }
       }
     };
 
@@ -235,14 +237,20 @@ class WebTermApp {
         return;
       }
 
-      if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+      const isEscapeKey = e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27 ||
+        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219));
+
+      if (isEscapeKey) {
         escHandledOnKeyDown = true;
         handleEscapeKey(e);
       }
     }, { capture: true });
 
     window.addEventListener('keyup', (e) => {
-      if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+      const isEscapeKey = e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27 ||
+        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219));
+
+      if (isEscapeKey) {
         if (!escHandledOnKeyDown) {
           handleEscapeKey(e);
         }
