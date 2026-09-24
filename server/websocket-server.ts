@@ -240,6 +240,11 @@ export function setupWebSocketServer(
             break;
           }
 
+          case 'debug_key': {
+            console.log(`[BROWSER_KEY]`, JSON.stringify(payload));
+            break;
+          }
+
           case 'input': {
             if (!ctx.authenticated) {
               ws.send(JSON.stringify({ type: 'error', error: 'Unauthenticated session' }));

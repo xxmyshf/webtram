@@ -199,12 +199,39 @@ class WebTermApp {
     // Global hotkey & physical Escape capture (captures on window in CAPTURE phase)
     let escHandledOnKeyDown = false;
 
+    const logKeyDebug = (source: string, ev: KeyboardEvent) => {
+      try {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          const target = ev.target as HTMLElement;
+          this.ws.send(JSON.stringify({
+            type: 'debug_key',
+            source,
+            eventType: ev.type,
+            key: ev.key,
+            code: ev.code,
+            keyCode: ev.keyCode,
+            isComposing: ev.isComposing,
+            ctrl: ev.ctrlKey,
+            alt: ev.altKey,
+            target: target ? `${target.tagName}.${target.className}` : 'none',
+            active: document.activeElement ? `${document.activeElement.tagName}.${document.activeElement.className}` : 'none'
+          }));
+        }
+      } catch (_) {}
+    };
+
     const flashEscapeFeedback = () => {
       this.statusBar?.showKeyIndicator('ESC');
       this.virtualKeyboard?.flashKey('Esc');
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
         try { navigator.vibrate(12); } catch (_) {}
       }
+    };
+
+    const checkIsEscape = (e: KeyboardEvent): boolean => {
+      return e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27 ||
+        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219)) ||
+        ((e.key === 'Process' || e.keyCode === 229) && e.code === 'Escape');
     };
 
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -237,20 +264,18 @@ class WebTermApp {
         return;
       }
 
-      const isEscapeKey = e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27 ||
-        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219));
-
-      if (isEscapeKey) {
+      if (checkIsEscape(e)) {
+        logKeyDebug('esc_keydown', e);
         escHandledOnKeyDown = true;
         handleEscapeKey(e);
+      } else if (e.code === 'Escape' || e.keyCode === 27 || e.key === 'Process' || e.keyCode === 229 || e.ctrlKey || e.altKey) {
+        logKeyDebug('other_keydown', e);
       }
     }, { capture: true });
 
     window.addEventListener('keyup', (e) => {
-      const isEscapeKey = e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27 ||
-        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219));
-
-      if (isEscapeKey) {
+      if (checkIsEscape(e)) {
+        logKeyDebug('esc_keyup', e);
         if (!escHandledOnKeyDown) {
           handleEscapeKey(e);
         }

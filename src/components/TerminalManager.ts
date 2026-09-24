@@ -77,18 +77,16 @@ export class TerminalManager {
     if (helperTextarea) {
       helperTextarea.readOnly = true;
       helperTextarea.tabIndex = 0;
+      helperTextarea.setAttribute('inputmode', 'none');
       helperTextarea.setAttribute('autocomplete', 'off');
       helperTextarea.setAttribute('autocorrect', 'off');
       helperTextarea.setAttribute('autocapitalize', 'off');
       helperTextarea.setAttribute('spellcheck', 'false');
 
-      // Keep readOnly on focus & suppress virtual keyboard on mobile touch devices
+      // Keep readOnly on focus & suppress virtual keyboard and OS IME attachment
       helperTextarea.addEventListener('focus', () => {
         helperTextarea.readOnly = true;
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (isTouch) {
-          helperTextarea.setAttribute('inputmode', 'none');
-        }
+        helperTextarea.setAttribute('inputmode', 'none');
       });
     }
 
@@ -105,7 +103,8 @@ export class TerminalManager {
     // (Bypasses browser IME cancellation and xterm keyCode 229/0 dropping)
     this.terminal.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
       const isEscape = ev.key === 'Escape' || ev.code === 'Escape' || ev.keyCode === 27 ||
-        (ev.ctrlKey && !ev.altKey && !ev.metaKey && (ev.key === '[' || ev.code === 'BracketLeft' || ev.keyCode === 219));
+        (ev.ctrlKey && !ev.altKey && !ev.metaKey && (ev.key === '[' || ev.code === 'BracketLeft' || ev.keyCode === 219)) ||
+        ((ev.key === 'Process' || ev.keyCode === 229) && ev.code === 'Escape');
       if (isEscape) {
         if (ev.type === 'keydown') {
           ev.preventDefault();
