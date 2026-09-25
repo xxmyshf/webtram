@@ -71,26 +71,41 @@ export class TerminalManager {
 
     this.terminal.open(this.container);
 
-    // Prevent OS IME (fcitx5/ibus) from attaching and swallowing physical Escape key,
-    // while keeping all standard keyboard events (Alphanumeric, Escape, Enter, Ctrl+C, etc.) and paste active.
+    // Helper textarea setup for keyboard and IME input
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
     const helperTextarea = this.container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     if (helperTextarea) {
-      helperTextarea.readOnly = true;
       helperTextarea.tabIndex = 0;
-      helperTextarea.setAttribute('inputmode', 'none');
       helperTextarea.setAttribute('autocomplete', 'off');
       helperTextarea.setAttribute('autocorrect', 'off');
       helperTextarea.setAttribute('autocapitalize', 'off');
       helperTextarea.setAttribute('spellcheck', 'false');
 
-      // Keep readOnly on focus & suppress virtual keyboard and OS IME attachment
-      helperTextarea.addEventListener('focus', () => {
+      if (isMobileDevice) {
+        // Suppress mobile virtual keyboard for touch devices (we provide Cyberpunk Virtual Keyboard / NativeIMEBridge)
         helperTextarea.readOnly = true;
         helperTextarea.setAttribute('inputmode', 'none');
-      });
+        helperTextarea.addEventListener('focus', () => {
+          helperTextarea.readOnly = true;
+          helperTextarea.setAttribute('inputmode', 'none');
+        });
+      } else {
+        // Desktop environment (Linux / Windows / macOS):
+        // Keep helperTextarea fully editable with standard text input mode so OS IME (fcitx5, ibus, etc.)
+        // activates and displays the candidate list directly at the terminal cursor position.
+        helperTextarea.readOnly = false;
+        helperTextarea.removeAttribute('readonly');
+        helperTextarea.setAttribute('inputmode', 'text');
+        helperTextarea.addEventListener('focus', () => {
+          helperTextarea.readOnly = false;
+          helperTextarea.removeAttribute('readonly');
+          helperTextarea.setAttribute('inputmode', 'text');
+          this.syncCursorPosition();
+        });
+      }
     }
 
-    // Capture user direct typing (physical keyboard or paste)
+    // Capture user direct typing (physical keyboard, IME, or paste)
     this.terminal.onData((data) => {
       // Suppress automated terminal query responses triggered during history replay
       if (this.isReplayingHistory) {
@@ -100,11 +115,15 @@ export class TerminalManager {
     });
 
     // Ensure physical Escape key (and Ctrl+[) is directly intercepted and dispatched to terminal backend
-    // (Bypasses browser IME cancellation and xterm keyCode 229/0 dropping)
+    // Bypasses browser navigation while respecting ongoing IME composition.
     this.terminal.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
+      // Do not intercept if user is actively composing with an IME
+      if (ev.isComposing || ev.keyCode === 229) {
+        return true;
+      }
+
       const isEscape = ev.key === 'Escape' || ev.code === 'Escape' || ev.keyCode === 27 ||
-        (ev.ctrlKey && !ev.altKey && !ev.metaKey && (ev.key === '[' || ev.code === 'BracketLeft' || ev.keyCode === 219)) ||
-        ((ev.key === 'Process' || ev.keyCode === 229) && ev.code === 'Escape');
+        (ev.ctrlKey && !ev.altKey && !ev.metaKey && (ev.key === '[' || ev.code === 'BracketLeft' || ev.keyCode === 219));
       if (isEscape) {
         if (ev.type === 'keydown') {
           ev.preventDefault();
@@ -117,12 +136,18 @@ export class TerminalManager {
       return true;
     });
 
+    // Sync cursor position whenever the terminal re-renders so IME helper box follows cursor
+    this.terminal.onRender(() => {
+      this.syncCursorPosition();
+    });
+
     // Ensure terminal focuses when clicking or tapping anywhere in the container
     this.container.addEventListener('pointerdown', () => {
-      if (helperTextarea) {
+      if (helperTextarea && isMobileDevice) {
         helperTextarea.readOnly = true;
       }
       this.terminal.focus();
+      this.syncCursorPosition();
     });
 
     // Auto-fit on container size changes
@@ -164,12 +189,26 @@ export class TerminalManager {
     this.terminal.clear();
   }
 
+  public syncCursorPosition(): void {
+    try {
+      (this.terminal as any)._core?._syncTextArea?.();
+    } catch (_) {}
+  }
+
   public focus(): void {
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
     const helperTextarea = this.container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     if (helperTextarea) {
-      helperTextarea.readOnly = true;
+      if (isMobileDevice) {
+        helperTextarea.readOnly = true;
+      } else {
+        helperTextarea.readOnly = false;
+        helperTextarea.removeAttribute('readonly');
+        helperTextarea.setAttribute('inputmode', 'text');
+      }
     }
     this.terminal.focus();
+    this.syncCursorPosition();
   }
 
   public getCols(): number {

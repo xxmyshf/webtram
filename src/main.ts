@@ -229,9 +229,10 @@ class WebTermApp {
     };
 
     const checkIsEscape = (e: KeyboardEvent): boolean => {
+      // Do not treat IME composition events as Escape key
+      if (e.isComposing || e.keyCode === 229) return false;
       return e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27 ||
-        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219)) ||
-        ((e.key === 'Process' || e.keyCode === 229) && e.code === 'Escape');
+        (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === '[' || e.code === 'BracketLeft' || e.keyCode === 219));
     };
 
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -268,8 +269,8 @@ class WebTermApp {
         logKeyDebug('esc_keydown', e);
         escHandledOnKeyDown = true;
         handleEscapeKey(e);
-      } else if (e.code === 'Escape' || e.keyCode === 27 || e.key === 'Process' || e.keyCode === 229 || e.ctrlKey || e.altKey) {
-        logKeyDebug('other_keydown', e);
+      } else {
+        logKeyDebug('any_keydown', e);
       }
     }, { capture: true });
 
@@ -280,6 +281,8 @@ class WebTermApp {
           handleEscapeKey(e);
         }
         escHandledOnKeyDown = false;
+      } else {
+        logKeyDebug('any_keyup', e);
       }
     }, { capture: true });
 
